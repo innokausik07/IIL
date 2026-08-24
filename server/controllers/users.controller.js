@@ -43,10 +43,10 @@ const createUser = async (req, res) => {
       }
     }
 
-    // Check if user already exists (using empId as username)
-    const [existing] = await conn.execute('SELECT username FROM admin_users WHERE username = ? OR emp_id = ?', [empId.trim(), empId.trim()]);
+    // Check if user already exists (using empId as username only - emp_id column may not exist yet)
+    const [existing] = await conn.execute('SELECT username FROM admin_users WHERE username = ?', [empId.trim()]);
     if (existing.length > 0) {
-      return res.status(400).json({ status: 'error', message: 'User or Emp ID already exists.' });
+      return res.status(400).json({ status: 'error', message: 'A user with this Emp ID already exists.' });
     }
 
     // Insert new user
@@ -82,8 +82,9 @@ const createUser = async (req, res) => {
 
     return res.json({ status: 'success', message: 'User created successfully!' });
   } catch (err) {
-    console.error('Create User Error:', err);
-    return res.status(500).json({ status: 'error', message: err.message });
+    console.error('Create User Error:', err.code, err.message);
+    // Return the actual DB error to the frontend for debugging
+    return res.status(500).json({ status: 'error', message: 'DB Error: ' + err.message });
   } finally {
     conn.release();
   }

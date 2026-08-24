@@ -2,7 +2,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import {
   LayoutGrid, FileSpreadsheet, MoveRight, SlidersHorizontal,
-  Package, LogOut, User, Database, UserPlus
+  Package, LogOut, User, Database, UserPlus, MapPin
 } from 'lucide-react';
 
 const navItems = [
@@ -13,7 +13,8 @@ const navItems = [
 ];
 
 const adminItems = [
-  { to: '/admin/create-user', label: 'Create User', icon: <UserPlus size={16} /> },
+  { to: '/admin/create-user',      label: 'Create User',      icon: <UserPlus size={16} /> },
+  { to: '/admin/location-master',  label: 'Location Master',  icon: <MapPin size={16} /> },
 ];
 
 export default function Sidebar() {

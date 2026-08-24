@@ -8,6 +8,7 @@ import MovedSheetList from './pages/MovedSheetList';
 import CrossAuditList from './pages/CrossAuditList';
 import StoreStockList from './pages/StoreStockList';
 import CreateUser from './pages/CreateUser';
+import LocationMaster from './pages/LocationMaster';
 
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
@@ -27,6 +28,7 @@ function AppRoutes() {
       <Route path="/cross-audit" element={<ProtectedRoute><CrossAuditList /></ProtectedRoute>} />
       <Route path="/store-stock" element={<ProtectedRoute><StoreStockList /></ProtectedRoute>} />
       <Route path="/admin/create-user" element={<ProtectedRoute><CreateUser /></ProtectedRoute>} />
+      <Route path="/admin/location-master" element={<ProtectedRoute><LocationMaster /></ProtectedRoute>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

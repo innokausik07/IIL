@@ -2,7 +2,8 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import {
   LayoutGrid, FileSpreadsheet, MoveRight, SlidersHorizontal,
-  Package, LogOut, User, Database, UserPlus, MapPin
+  Package, LogOut, User, Database, UserPlus, MapPin,
+  Map, Building2, Tag, Palette, Receipt, Truck, Settings
 } from 'lucide-react';
 
 const navItems = [
@@ -15,6 +16,13 @@ const navItems = [
 const adminItems = [
   { to: '/admin/create-user',      label: 'Create User',      icon: <UserPlus size={16} /> },
   { to: '/admin/location-master',  label: 'Location Master',  icon: <MapPin size={16} /> },
+  { to: '/admin/state-master',     label: 'State Master',     icon: <Map size={16} /> },
+  { to: '/admin/city-master',      label: 'City Master',      icon: <Building2 size={16} /> },
+  { to: '/admin/brand-master',     label: 'Brand Master',     icon: <Tag size={16} /> },
+  { to: '/admin/color-master',     label: 'Color Master',     icon: <Palette size={16} /> },
+  { to: '/admin/tax-master',       label: 'Tax / HSN Master', icon: <Receipt size={16} /> },
+  { to: '/admin/courier-master',   label: 'Courier Master',   icon: <Truck size={16} /> },
+  { to: '/admin/parameter-master', label: 'Parameter Master', icon: <Settings size={16} /> },
 ];
 
 export default function Sidebar() {

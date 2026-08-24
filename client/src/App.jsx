@@ -9,6 +9,13 @@ import CrossAuditList from './pages/CrossAuditList';
 import StoreStockList from './pages/StoreStockList';
 import CreateUser from './pages/CreateUser';
 import LocationMaster from './pages/LocationMaster';
+import StateMaster from './pages/StateMaster';
+import CityMaster from './pages/CityMaster';
+import BrandMaster from './pages/BrandMaster';
+import ColorMaster from './pages/ColorMaster';
+import TaxMaster from './pages/TaxMaster';
+import CourierMaster from './pages/CourierMaster';
+import ParameterMaster from './pages/ParameterMaster';
 
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
@@ -27,8 +34,15 @@ function AppRoutes() {
       <Route path="/moved-sheet" element={<ProtectedRoute><MovedSheetList /></ProtectedRoute>} />
       <Route path="/cross-audit" element={<ProtectedRoute><CrossAuditList /></ProtectedRoute>} />
       <Route path="/store-stock" element={<ProtectedRoute><StoreStockList /></ProtectedRoute>} />
-      <Route path="/admin/create-user" element={<ProtectedRoute><CreateUser /></ProtectedRoute>} />
-      <Route path="/admin/location-master" element={<ProtectedRoute><LocationMaster /></ProtectedRoute>} />
+      <Route path="/admin/create-user"      element={<ProtectedRoute><CreateUser /></ProtectedRoute>} />
+      <Route path="/admin/location-master"  element={<ProtectedRoute><LocationMaster /></ProtectedRoute>} />
+      <Route path="/admin/state-master"     element={<ProtectedRoute><StateMaster /></ProtectedRoute>} />
+      <Route path="/admin/city-master"      element={<ProtectedRoute><CityMaster /></ProtectedRoute>} />
+      <Route path="/admin/brand-master"     element={<ProtectedRoute><BrandMaster /></ProtectedRoute>} />
+      <Route path="/admin/color-master"     element={<ProtectedRoute><ColorMaster /></ProtectedRoute>} />
+      <Route path="/admin/tax-master"       element={<ProtectedRoute><TaxMaster /></ProtectedRoute>} />
+      <Route path="/admin/courier-master"   element={<ProtectedRoute><CourierMaster /></ProtectedRoute>} />
+      <Route path="/admin/parameter-master" element={<ProtectedRoute><ParameterMaster /></ProtectedRoute>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

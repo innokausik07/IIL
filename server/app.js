@@ -28,6 +28,7 @@ app.use(express.static(clientBuild));
 app.use('/api/auth',          require('./routes/auth.routes'));
 app.use('/api/users',         require('./routes/users.routes'));
 app.use('/api/locations',     require('./routes/locations.routes'));
+app.use('/api/masters',       require('./routes/masters.routes'));
 app.use('/api/google-sheet',  require('./routes/googleSheet.routes'));
 app.use('/api/moved-sheet',   require('./routes/movedSheet.routes'));
 app.use('/api/cross-audit',   require('./routes/crossAudit.routes'));

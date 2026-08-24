@@ -22,19 +22,25 @@ const createUser = async (req, res) => {
       return res.status(400).json({ status: 'error', message: 'Emp ID, User Name, and Password are required.' });
     }
 
-    // Automatically ensure the database table has all the necessary columns
-    // The legacy database might only have username, password, name, utype, status
-    const alterQueries = [
-      "ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS emp_id VARCHAR(100) DEFAULT NULL",
-      "ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS owner VARCHAR(100) DEFAULT NULL",
-      "ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS alt_mobile VARCHAR(50) DEFAULT NULL",
-      "ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS mobile VARCHAR(50) DEFAULT NULL",
-      "ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS email VARCHAR(255) DEFAULT NULL",
-      "ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS profile_img VARCHAR(255) DEFAULT NULL",
-    ];
+    // Safely add missing columns (Older MySQL versions don't support ADD COLUMN IF NOT EXISTS)
+    const columnsToAdd = {
+      emp_id: "VARCHAR(100) DEFAULT NULL",
+      owner: "VARCHAR(100) DEFAULT NULL",
+      alt_mobile: "VARCHAR(50) DEFAULT NULL",
+      mobile: "VARCHAR(50) DEFAULT NULL",
+      email: "VARCHAR(255) DEFAULT NULL",
+      profile_img: "VARCHAR(255) DEFAULT NULL"
+    };
 
-    for (const q of alterQueries) {
-      try { await conn.execute(q); } catch (e) { /* ignore if exists */ }
+    for (const [colName, colType] of Object.entries(columnsToAdd)) {
+      const [cols] = await conn.execute(`SHOW COLUMNS FROM admin_users LIKE ?`, [colName]);
+      if (cols.length === 0) {
+        try {
+          await conn.execute(`ALTER TABLE admin_users ADD COLUMN ${colName} ${colType}`);
+        } catch (e) {
+          console.error(`Failed to add column ${colName}:`, e.message);
+        }
+      }
     }
 
     // Check if user already exists (using empId as username)

@@ -1,5 +1,5 @@
 /**
- * Complete Master & Logistics Data Routes
+ * Complete Master, Logistics & Function Master Data Routes
  */
 const express = require('express');
 const router  = express.Router();
@@ -10,7 +10,7 @@ const makeRoutes = (table, idCol, insertCols) => {
   // GET list
   router.get(`/${table}`, async (req, res) => {
     try {
-      const [rows] = await db.execute(`SELECT * FROM ${table} ORDER BY ${idCol} DESC`);
+      const [rows] = await db.execute(`SELECT * FROM ${table} ORDER BY ${idCol} ASC`);
       res.json({ status: 'success', data: rows });
     } catch (e) {
       res.status(500).json({ status: 'error', message: e.sqlMessage || e.message });
@@ -45,7 +45,7 @@ const makeRoutes = (table, idCol, insertCols) => {
   // DELETE / deactivate
   router.delete(`/${table}/:id`, async (req, res) => {
     try {
-      await db.execute(`UPDATE ${table} SET status = '0' WHERE ${idCol} = ?`, [req.params.id]);
+      await db.execute(`UPDATE ${table} SET status = 'D' WHERE ${idCol} = ?`, [req.params.id]);
       res.json({ status: 'success', message: 'Deactivated successfully!' });
     } catch (e) {
       res.status(500).json({ status: 'error', message: e.sqlMessage || e.message });
@@ -53,47 +53,50 @@ const makeRoutes = (table, idCol, insertCols) => {
   });
 };
 
-// ─── 1. Core Masters ──────────────────────────────────────────────────────────
-makeRoutes('state_master',     'sno',       ['state', 'zone', 'code', 'statecode', 'country', 'status']);
-makeRoutes('district_master',  'id',        ['city', 'state', 'country', 'status']);
-makeRoutes('make_master',      'id',        ['make', 'status']);
-makeRoutes('color_master',     'id',        ['color_name', 'color_code', 'status']);
-makeRoutes('tax_hsn_master',   'sno',       ['chapter_no', 'hsn_description', 'hsn_code', 'sgst', 'igst', 'cgst', 'status']);
-makeRoutes('diesl_master',     'sno',       ['couriername', 'couriercode', 'contact_person', 'email', 'phone', 'addrs', 'city', 'state', 'gstin', 'status']);
-makeRoutes('parameter_master', 'id',        ['param_name', 'param_value', 'param_type', 'status']);
-makeRoutes('bin_master',       'id',        ['bin_name', 'location_name', 'warehouse', 'status']);
-makeRoutes('asp_master',       'id',        ['asp_name', 'contact_person', 'phone', 'email', 'city', 'state', 'status']);
+// ─── 1. Function & Sub-Function Masters (Module Hierarchy) ────────────────────
+makeRoutes('function_master',     'id', ['function_id', 'function_name', 'descrip', 'icon_img', 'status', 'utype', 'tab']);
+makeRoutes('sub_function_master', 'id', ['function_id', 'sub_name', 'sub_seq', 'file_name', 'tab', 'icon_img', 'status', 'utype']);
 
-// ─── 2. Product Management ───────────────────────────────────────────────────
+// ─── 2. Core Masters ──────────────────────────────────────────────────────────
+makeRoutes('state_master',     'sno', ['state', 'zone', 'code', 'statecode', 'country', 'status']);
+makeRoutes('district_master',  'id',  ['city', 'state', 'country', 'status']);
+makeRoutes('make_master',      'id',  ['make', 'status']);
+makeRoutes('color_master',     'id',  ['color_name', 'color_code', 'status']);
+makeRoutes('tax_hsn_master',   'sno', ['chapter_no', 'hsn_description', 'hsn_code', 'sgst', 'igst', 'cgst', 'status']);
+makeRoutes('diesl_master',     'sno', ['couriername', 'couriercode', 'contact_person', 'email', 'phone', 'addrs', 'city', 'state', 'gstin', 'status']);
+makeRoutes('parameter_master', 'id',  ['param_name', 'param_value', 'param_type', 'status']);
+makeRoutes('bin_master',       'id',  ['bin_name', 'location_name', 'warehouse', 'status']);
+makeRoutes('asp_master',       'id',  ['asp_name', 'contact_person', 'phone', 'email', 'city', 'state', 'status']);
+
+// ─── 3. Product Management ───────────────────────────────────────────────────
 makeRoutes('product_cat_master',  'catid',     ['cat_name', 'short_code', 'status']);
 makeRoutes('product_sub_category','psubcatid', ['prod_sub_cat', 'productid', 'product_category', 'status']);
 makeRoutes('product_master',      'id',        ['part_code', 'item_code', 'product_name', 'product_category_id', 'product_subcat_id', 'brand_id', 'model', 'hsn_code', 'product_color', 'product_type', 'is_serialize', 'product_description', 'warranty_days', 'warranty_terms', 'status_id']);
 makeRoutes('bom_master',          'id',        ['bom_no', 'product_name', 'part_code', 'subcat_name', 'qty', 'status']);
 makeRoutes('price_master',        'id',        ['part_code', 'product_name', 'purchase_price', 'selling_price', 'rental_price', 'status']);
 
-// ─── 3. Vendor & Client ───────────────────────────────────────────────────────
+// ─── 4. Vendor & Client ───────────────────────────────────────────────────────
 makeRoutes('vendor_master',       'sno',       ['id', 'name', 'type', 'contact_name', 'phone', 'alt_number', 'email', 'address', 'city', 'state', 'country', 'pincode', 'gstin_no', 'business_nature', 'payment_terms', 'bank', 'acct_number', 'ifsc', 'status']);
 makeRoutes('client_master',       'id',        ['client_code', 'client_name', 'contact_person', 'phone', 'email', 'city', 'state', 'address', 'gstin', 'status']);
 
-// ─── 4. CRM & Sales ───────────────────────────────────────────────────────────
+// ─── 5. CRM & Sales ───────────────────────────────────────────────────────────
 makeRoutes('lead_master',         'id',        ['lead_no', 'lead_title', 'client_name', 'contact_person', 'phone', 'email', 'source', 'lead_status', 'expected_value', 'remarks']);
 makeRoutes('quot_master',         'id',        ['quot_no', 'client_name', 'quot_date', 'total_amount', 'tax_amount', 'net_amount', 'status']);
 makeRoutes('rfp_master',          'id',        ['rfp_no', 'title', 'client_name', 'submission_date', 'estimated_value', 'status']);
 
-// ─── 5. Logistics Management ──────────────────────────────────────────────────
+// ─── 6. Logistics Management ──────────────────────────────────────────────────
 makeRoutes('delivery_challan',    'id',        ['dc_no', 'dc_date', 'dc_type', 'client_name', 'from_location', 'to_location', 'courier_name', 'docket_no', 'total_qty', 'total_weight', 'status', 'remarks']);
 makeRoutes('goods_receipt_note',  'id',        ['grn_no', 'grn_date', 'vendor_name', 'po_no', 'invoice_no', 'warehouse_name', 'received_qty', 'accepted_qty', 'rejected_qty', 'status', 'remarks']);
 makeRoutes('return_dc_master',    'id',        ['return_dc_no', 'return_date', 'client_name', 'reason', 'from_city', 'to_warehouse', 'courier_name', 'docket_no', 'status']);
 makeRoutes('logistics_shipment',  'id',        ['awb_number', 'courier_name', 'ref_doc_no', 'origin_pin', 'dest_pin', 'weight_kg', 'shipping_mode', 'shipment_cost', 'dispatch_date', 'delivery_status', 'delivery_date', 'status']);
 makeRoutes('courier_rate_master', 'id',        ['courier_name', 'mode', 'min_weight_kg', 'base_rate', 'per_kg_rate', 'fuel_surcharge', 'status']);
 
-// ─── 6. Logistics Freight Calculator API ───────────────────────────────────────
+// ─── 7. Logistics Freight Calculator API ───────────────────────────────────────
 router.post('/calculate-freight', (req, res) => {
   try {
     const { origin_pin, dest_pin, weight_kg = 1, mode = 'Surface', carrier = 'Standard' } = req.body;
     const wt = Math.max(parseFloat(weight_kg) || 1, 0.5);
 
-    // Zone detection from pincode prefixes
     const getZone = (pin) => {
       const p = parseInt(String(pin || '').substring(0, 2), 10);
       if (p === 11) return 'North (Delhi)';
@@ -118,7 +121,6 @@ router.post('/calculate-freight', (req, res) => {
     const originZone = getZone(origin_pin);
     const destZone   = getZone(dest_pin);
 
-    // Rates per kg by mode
     const rateCard = {
       'Surface': { base: 60, perKg: 18, fuel: 10, handling: 20 },
       'Express': { base: 110, perKg: 35, fuel: 12, handling: 30 },
@@ -155,6 +157,6 @@ router.post('/calculate-freight', (req, res) => {
 });
 
 // Ping
-router.get('/ping', (req, res) => res.json({ status: 'ok', message: 'All master and logistics routes working' }));
+router.get('/ping', (req, res) => res.json({ status: 'ok', message: 'All routes working including function_master' }));
 
 module.exports = router;

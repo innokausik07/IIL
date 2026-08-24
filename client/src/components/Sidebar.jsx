@@ -6,7 +6,8 @@ import {
   Map, Building2, Tag, Palette, Receipt, Truck, Settings,
   Layers, GitFork, Cpu, CircleDollarSign, Users2, Briefcase,
   Target, FileText, Award, Archive, ShieldCheck,
-  Calculator, Send, DownloadCloud, Undo2, Navigation, DollarSign
+  Calculator, Send, DownloadCloud, Undo2, Navigation, DollarSign,
+  Network, GitMerge
 } from 'lucide-react';
 
 const sheetItems = [
@@ -45,17 +46,19 @@ const crmItems = [
 ];
 
 const adminItems = [
-  { to: '/admin/create-user',      label: 'Create User',          icon: <UserPlus size={15} /> },
-  { to: '/admin/location-master',  label: 'Location Master',      icon: <MapPin size={15} /> },
-  { to: '/admin/state-master',     label: 'State Master',         icon: <Map size={15} /> },
-  { to: '/admin/city-master',      label: 'City Master',          icon: <Building2 size={15} /> },
-  { to: '/admin/brand-master',     label: 'Brand Master',         icon: <Tag size={15} /> },
-  { to: '/admin/color-master',     label: 'Color Master',         icon: <Palette size={15} /> },
-  { to: '/admin/tax-master',       label: 'Tax / HSN Master',     icon: <Receipt size={15} /> },
-  { to: '/admin/courier-master',   label: 'Courier Master',       icon: <Truck size={15} /> },
-  { to: '/admin/parameter-master', label: 'Parameter Master',     icon: <Settings size={15} /> },
-  { to: '/admin/bin-master',       label: 'Bin Master',           icon: <Archive size={15} /> },
-  { to: '/admin/asp-master',       label: 'ASP Master',           icon: <ShieldCheck size={15} /> },
+  { to: '/admin/function-master',     label: 'Function Master (Modules)',  icon: <Network size={15} /> },
+  { to: '/admin/subfunction-master',  label: 'Sub-Function Master',        icon: <GitMerge size={15} /> },
+  { to: '/admin/create-user',         label: 'Create User',                icon: <UserPlus size={15} /> },
+  { to: '/admin/location-master',     label: 'Location Master',            icon: <MapPin size={15} /> },
+  { to: '/admin/state-master',        label: 'State Master',               icon: <Map size={15} /> },
+  { to: '/admin/city-master',         label: 'City Master',                icon: <Building2 size={15} /> },
+  { to: '/admin/brand-master',        label: 'Brand Master',               icon: <Tag size={15} /> },
+  { to: '/admin/color-master',        label: 'Color Master',               icon: <Palette size={15} /> },
+  { to: '/admin/tax-master',          label: 'Tax / HSN Master',           icon: <Receipt size={15} /> },
+  { to: '/admin/courier-master',      label: 'Courier Master',             icon: <Truck size={15} /> },
+  { to: '/admin/parameter-master',    label: 'Parameter Master',           icon: <Settings size={15} /> },
+  { to: '/admin/bin-master',          label: 'Bin Master',                 icon: <Archive size={15} /> },
+  { to: '/admin/asp-master',          label: 'ASP Master',                 icon: <ShieldCheck size={15} /> },
 ];
 
 export default function Sidebar() {

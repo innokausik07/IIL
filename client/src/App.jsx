@@ -16,6 +16,10 @@ import ReturnDcMaster from './pages/ReturnDcMaster';
 import ShipmentTracking from './pages/ShipmentTracking';
 import CourierRateMaster from './pages/CourierRateMaster';
 
+// Function & Sub-Function Masters (Module Hierarchy)
+import FunctionMaster from './pages/FunctionMaster';
+import SubFunctionMaster from './pages/SubFunctionMaster';
+
 // Admin / Core Masters
 import CreateUser from './pages/CreateUser';
 import LocationMaster from './pages/LocationMaster';
@@ -88,6 +92,10 @@ function AppRoutes() {
       <Route path="/crm/lead-master"      element={<ProtectedRoute><LeadMaster /></ProtectedRoute>} />
       <Route path="/crm/quotation-master" element={<ProtectedRoute><QuotationMaster /></ProtectedRoute>} />
       <Route path="/crm/rfp-master"       element={<ProtectedRoute><RfpMaster /></ProtectedRoute>} />
+
+      {/* Function & Sub-Function Masters */}
+      <Route path="/admin/function-master"    element={<ProtectedRoute><FunctionMaster /></ProtectedRoute>} />
+      <Route path="/admin/subfunction-master" element={<ProtectedRoute><SubFunctionMaster /></ProtectedRoute>} />
 
       {/* Master Management (Admin) */}
       <Route path="/admin/create-user"      element={<ProtectedRoute><CreateUser /></ProtectedRoute>} />

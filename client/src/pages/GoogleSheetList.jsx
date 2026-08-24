@@ -4,7 +4,6 @@ import {
   Search, RefreshCw, UserCheck, CheckCircle, XCircle,
   Truck, RotateCcw, Upload, Download, Filter, X, ChevronLeft, ChevronRight
 } from 'lucide-react';
-import Sidebar from '../components/Sidebar';
 import StatusBadge, { STATUS_MAP } from '../components/StatusBadge';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -197,10 +196,8 @@ export default function GoogleSheetList() {
   };
 
   return (
-    <div className="layout">
-      <Sidebar />
-      <div className="main-content">
-        {/* Top Bar */}
+    <>
+      {/* Top Bar */}
         <div className="topbar">
           <div>
             <span className="topbar-title">CCTV Audit Data</span>
@@ -589,6 +586,6 @@ export default function GoogleSheetList() {
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }

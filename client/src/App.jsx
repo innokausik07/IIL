@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import Layout from './components/Layout';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 import GoogleSheetList from './pages/GoogleSheetList';
@@ -53,7 +54,7 @@ const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
   if (loading) return <div className="page-loading"><div className="spinner"></div></div>;
   if (!user) return <Navigate to="/login" replace />;
-  return children;
+  return <Layout>{children}</Layout>;
 };
 
 function AppRoutes() {

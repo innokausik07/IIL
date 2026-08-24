@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import toast from 'react-hot-toast';
 import { Search, RefreshCw, X, ChevronLeft, ChevronRight, Package } from 'lucide-react';
-import Sidebar from '../components/Sidebar';
 import { getStoreStockList } from '../api/erpApi';
 
 export default function StoreStockList() {
@@ -36,10 +35,8 @@ export default function StoreStockList() {
   }), { common: 0, user: 0, wh_mundka: 0, client: 0, store: 0 });
 
   return (
-    <div className="layout">
-      <Sidebar />
-      <div className="main-content">
-        <div className="topbar">
+    <>
+      <div className="topbar">
           <span className="topbar-title">Store Stock <span>· {pagination.total} part codes</span></span>
           <button className="btn btn-secondary" onClick={() => fetchData(pagination.page)}>
             <RefreshCw size={14} /> Refresh
@@ -159,7 +156,6 @@ export default function StoreStockList() {
             </div>
           </div>
         </div>
-      </div>
-    </div>
+    </>
   );
 }

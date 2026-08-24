@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import toast from 'react-hot-toast';
 import { Search, RefreshCw, X, ChevronLeft, ChevronRight } from 'lucide-react';
-import Sidebar from '../components/Sidebar';
 import StatusBadge from '../components/StatusBadge';
 import { getCrossAuditList } from '../api/erpApi';
 
@@ -33,10 +32,8 @@ export default function CrossAuditList() {
   useEffect(() => { fetchData(1); }, [appliedFilters]);
 
   return (
-    <div className="layout">
-      <Sidebar />
-      <div className="main-content">
-        <div className="topbar">
+    <>
+      <div className="topbar">
           <span className="topbar-title">Cross Audit List
             <span> · {pagination.total.toLocaleString()} records</span>
           </span>
@@ -117,7 +114,6 @@ export default function CrossAuditList() {
             </div>
           </div>
         </div>
-      </div>
-    </div>
+    </>
   );
 }

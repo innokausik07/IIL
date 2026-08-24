@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import toast from 'react-hot-toast';
 import { Search, RefreshCw, X, ChevronLeft, ChevronRight } from 'lucide-react';
-import Sidebar from '../components/Sidebar';
 import StatusBadge from '../components/StatusBadge';
 import { getMovedSheetList } from '../api/erpApi';
 
@@ -34,10 +33,8 @@ export default function MovedSheetList() {
   useEffect(() => { fetchData(1); }, [appliedFilters]);
 
   return (
-    <div className="layout">
-      <Sidebar />
-      <div className="main-content">
-        <div className="topbar">
+    <>
+      <div className="topbar">
           <div>
             <span className="topbar-title">Moved CCTV Audit Data</span>
             <span style={{ marginLeft: 8, fontSize: 12, color: '#64748b' }}>
@@ -160,7 +157,6 @@ export default function MovedSheetList() {
             </div>
           </div>
         </div>
-      </div>
-    </div>
+    </>
   );
 }

@@ -22,7 +22,7 @@ import FunctionMaster from './pages/FunctionMaster';
 import SubFunctionMaster from './pages/SubFunctionMaster';
 
 // Admin / Core Masters
-import CreateUser from './pages/CreateUser';
+import UserMaster from './pages/UserMaster';
 import LocationMaster from './pages/LocationMaster';
 import StateMaster from './pages/StateMaster';
 import CityMaster from './pages/CityMaster';
@@ -99,7 +99,8 @@ function AppRoutes() {
       <Route path="/admin/subfunction-master" element={<ProtectedRoute><SubFunctionMaster /></ProtectedRoute>} />
 
       {/* Master Management (Admin) */}
-      <Route path="/admin/create-user"      element={<ProtectedRoute><CreateUser /></ProtectedRoute>} />
+      <Route path="/admin/user-master"      element={<ProtectedRoute><UserMaster /></ProtectedRoute>} />
+      <Route path="/admin/create-user"      element={<ProtectedRoute><UserMaster /></ProtectedRoute>} />
       <Route path="/admin/location-master"  element={<ProtectedRoute><LocationMaster /></ProtectedRoute>} />
       <Route path="/admin/state-master"     element={<ProtectedRoute><StateMaster /></ProtectedRoute>} />
       <Route path="/admin/city-master"      element={<ProtectedRoute><CityMaster /></ProtectedRoute>} />

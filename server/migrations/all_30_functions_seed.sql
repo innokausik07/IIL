@@ -94,7 +94,7 @@ INSERT INTO `sub_function_master` (`id`, `function_id`, `sub_name`, `sub_seq`, `
 (31, 'FN20', 'Client Master',            1, '/crm/client-master',           'Clients',   'fa-building',     'Y', '2'),
 
 -- Administration & Masters (FN23 / FN25)
-(32, 'FN23', 'Create User',              1, '/admin/create-user',           'Admin',     'fa-user-plus',    'Y', '1'),
+(32, 'FN23', 'User Master',              1, '/admin/user-master',           'Admin',     'fa-user-plus',    'Y', '1'),
 (33, 'FN23', 'Function Master',          2, '/admin/function-master',       'Admin',     'fa-sitemap',      'Y', '1'),
 (34, 'FN23', 'Sub-Function Master',      3, '/admin/subfunction-master',    'Admin',     'fa-list-alt',     'Y', '1'),
 (35, 'FN25', 'Location Master',          1, '/admin/location-master',       'Masters',   'fa-map-marker',   'Y', '1'),

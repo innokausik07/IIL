@@ -1,5 +1,4 @@
 const db = require('../config/db');
-const fs = require('fs');
 
 const createUser = async (req, res) => {
   const conn = await db.getConnection();
@@ -18,72 +17,66 @@ const createUser = async (req, res) => {
 
     const profileImg = req.file ? req.file.filename : null;
 
-    if (!empId || !password || !userName) {
-      return res.status(400).json({ status: 'error', message: 'Emp ID, User Name, and Password are required.' });
+    if (!userName || !password) {
+      return res.status(400).json({ status: 'error', message: 'User Name and Password are required.' });
     }
 
-    // Safely add missing columns (Older MySQL versions don't support ADD COLUMN IF NOT EXISTS)
+    // Safely add missing columns to the `users` table if they don't exist yet
     const columnsToAdd = {
-      emp_id: "VARCHAR(100) DEFAULT NULL",
-      owner: "VARCHAR(100) DEFAULT NULL",
-      alt_mobile: "VARCHAR(50) DEFAULT NULL",
-      mobile: "VARCHAR(50) DEFAULT NULL",
-      email: "VARCHAR(255) DEFAULT NULL",
+      emp_id:      "VARCHAR(100) DEFAULT NULL",
+      utype:       "VARCHAR(10) DEFAULT '9'",
+      owner:       "VARCHAR(100) DEFAULT NULL",
+      alt_mobile:  "VARCHAR(50) DEFAULT NULL",
+      mobile:      "VARCHAR(50) DEFAULT NULL",
+      status:      "VARCHAR(5) DEFAULT '1'",
       profile_img: "VARCHAR(255) DEFAULT NULL"
     };
 
     for (const [colName, colType] of Object.entries(columnsToAdd)) {
-      const [cols] = await conn.execute(`SHOW COLUMNS FROM admin_users LIKE ?`, [colName]);
+      const [cols] = await conn.execute(`SHOW COLUMNS FROM users LIKE ?`, [colName]);
       if (cols.length === 0) {
         try {
-          await conn.execute(`ALTER TABLE admin_users ADD COLUMN ${colName} ${colType}`);
+          await conn.execute(`ALTER TABLE users ADD COLUMN ${colName} ${colType}`);
         } catch (e) {
           console.error(`Failed to add column ${colName}:`, e.message);
         }
       }
     }
 
-    // Check if user already exists (using empId as username only - emp_id column may not exist yet)
-    const [existing] = await conn.execute('SELECT username FROM admin_users WHERE username = ?', [empId.trim()]);
+    // Check if user already exists by email or emp_id
+    let existingCheck = 'SELECT id FROM users WHERE full_name = ?';
+    const checkParams = [userName.trim()];
+    if (emailId) {
+      existingCheck += ' OR email = ?';
+      checkParams.push(emailId.trim());
+    }
+    const [existing] = await conn.execute(existingCheck, checkParams);
     if (existing.length > 0) {
-      return res.status(400).json({ status: 'error', message: 'A user with this Emp ID already exists.' });
+      return res.status(400).json({ status: 'error', message: 'A user with this name or email already exists.' });
     }
 
-    // Insert new user
-    // We map empId -> username (for login) and userName -> name
+    // Insert new user into the `users` table
     await conn.execute(
-      `INSERT INTO admin_users 
-        (username, password, name, utype, status, emp_id, owner, alt_mobile, mobile, email, profile_img) 
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO users 
+        (full_name, email, password, emp_id, utype, owner, alt_mobile, mobile, status, profile_img) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
-        empId.trim(),          // username
+        userName.trim(),       // full_name
+        emailId || null,       // email
         password,              // password
-        userName.trim(),       // name
-        userType || '9',       // utype (default 9)
-        status || '1',         // status (default 1)
-        empId.trim(),          // emp_id
+        empId || null,         // emp_id
+        userType || '9',       // utype
         owner || null,         // owner
         altMobile || null,     // alt_mobile
         mobileNo || null,      // mobile
-        emailId || null,       // email
-        profileImg             // profile_img
+        status || '1',         // status
+        profileImg || null     // profile_img
       ]
     );
-
-    // Give default tab access for new users
-    const defaultTabs = ['1', '2', '3', '4'];
-    for (const tab of defaultTabs) {
-      try {
-        await conn.execute('INSERT INTO access_action_tab (userid, actabid, status) VALUES (?, ?, ?)', [empId.trim(), tab, '1']);
-      } catch (e) {
-        // Ignore duplicate key errors if tab already granted
-      }
-    }
 
     return res.json({ status: 'success', message: 'User created successfully!' });
   } catch (err) {
     console.error('Create User Error:', err.code, err.message);
-    // Return the actual DB error to the frontend for debugging
     return res.status(500).json({ status: 'error', message: 'DB Error: ' + err.message });
   } finally {
     conn.release();

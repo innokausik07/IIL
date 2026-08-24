@@ -3,9 +3,8 @@ import toast from 'react-hot-toast';
 import { UserPlus } from 'lucide-react';
 import axios from 'axios';
 
-// Ensure the frontend hits the correct API base URL
-// When deployed on Plesk, this will typically just use relative path if served from the same domain
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+// Use relative path so it works both locally and on Plesk live server
+const API_BASE = '/api';
 
 export default function CreateUser() {
   const [formData, setFormData] = useState({

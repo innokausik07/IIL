@@ -1,114 +1,180 @@
-import { NavLink, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import {
-  FileSpreadsheet, MoveRight, SlidersHorizontal,
-  Package, LogOut, UserPlus, MapPin,
-  Map, Building2, Tag, Palette, Receipt, Truck, Settings,
-  Layers, GitFork, Cpu, CircleDollarSign, Users2, Briefcase,
-  Target, FileText, Award, Archive, ShieldCheck,
-  Calculator, Send, DownloadCloud, Undo2, Navigation, DollarSign,
-  Network, GitMerge
+  FileSpreadsheet, MoveRight, SlidersHorizontal, Package, LogOut, UserPlus, MapPin,
+  Map, Building2, Tag, Palette, Receipt, Truck, Settings, Layers, GitFork, Cpu,
+  CircleDollarSign, Users2, Briefcase, Target, FileText, Award, Archive, ShieldCheck,
+  Calculator, Send, DownloadCloud, Undo2, Navigation, DollarSign, Network, GitMerge,
+  ChevronDown, ChevronRight, Folder, LayoutGrid, RefreshCw
 } from 'lucide-react';
 
-const sheetItems = [
-  { to: '/', label: 'CCTV Audit Data', icon: <FileSpreadsheet size={15} />, exact: true },
-  { to: '/moved-sheet', label: 'Moved Data', icon: <MoveRight size={15} /> },
-  { to: '/cross-audit', label: 'Cross Audit', icon: <SlidersHorizontal size={15} /> },
-  { to: '/store-stock', label: 'Store Stock', icon: <Package size={15} /> },
-];
-
-const logisticsItems = [
-  { to: '/logistics/calculator',         label: 'Freight Calculator',    icon: <Calculator size={15} /> },
-  { to: '/logistics/delivery-challan',   label: 'Delivery Challan (DC)', icon: <Send size={15} /> },
-  { to: '/logistics/grn-receipt',        label: 'GRN / Inward Goods',    icon: <DownloadCloud size={15} /> },
-  { to: '/logistics/return-dc',          label: 'Return DC / Reverse',   icon: <Undo2 size={15} /> },
-  { to: '/logistics/dispatch-tracking',  label: 'Shipment Tracking',     icon: <Navigation size={15} /> },
-  { to: '/logistics/courier-rates',      label: 'Courier Rate Cards',    icon: <DollarSign size={15} /> },
-];
-
-const productItems = [
-  { to: '/products/product-master',     label: 'Product / Item Master', icon: <Package size={15} /> },
-  { to: '/products/category-master',    label: 'Product Category',      icon: <Layers size={15} /> },
-  { to: '/products/subcategory-master', label: 'Product Sub-Category',  icon: <GitFork size={15} /> },
-  { to: '/products/bom-master',          label: 'BOM Master',            icon: <Cpu size={15} /> },
-  { to: '/products/price-master',        label: 'Price Master',          icon: <CircleDollarSign size={15} /> },
-];
-
-const vendorClientItems = [
-  { to: '/vendors/vendor-master', label: 'Vendor Master', icon: <Users2 size={15} /> },
-  { to: '/crm/client-master',     label: 'Client Master', icon: <Briefcase size={15} /> },
-];
-
-const crmItems = [
-  { to: '/crm/lead-master',       label: 'Lead Management',       icon: <Target size={15} /> },
-  { to: '/crm/quotation-master',  label: 'Quotation Management',  icon: <FileText size={15} /> },
-  { to: '/crm/rfp-master',        label: 'RFP / Tender',          icon: <Award size={15} /> },
-];
-
-const adminItems = [
-  { to: '/admin/function-master',     label: 'Function Master (Modules)',  icon: <Network size={15} /> },
-  { to: '/admin/subfunction-master',  label: 'Sub-Function Master',        icon: <GitMerge size={15} /> },
-  { to: '/admin/create-user',         label: 'Create User',                icon: <UserPlus size={15} /> },
-  { to: '/admin/location-master',     label: 'Location Master',            icon: <MapPin size={15} /> },
-  { to: '/admin/state-master',        label: 'State Master',               icon: <Map size={15} /> },
-  { to: '/admin/city-master',         label: 'City Master',                icon: <Building2 size={15} /> },
-  { to: '/admin/brand-master',        label: 'Brand Master',               icon: <Tag size={15} /> },
-  { to: '/admin/color-master',        label: 'Color Master',               icon: <Palette size={15} /> },
-  { to: '/admin/tax-master',          label: 'Tax / HSN Master',           icon: <Receipt size={15} /> },
-  { to: '/admin/courier-master',      label: 'Courier Master',             icon: <Truck size={15} /> },
-  { to: '/admin/parameter-master',    label: 'Parameter Master',           icon: <Settings size={15} /> },
-  { to: '/admin/bin-master',          label: 'Bin Master',                 icon: <Archive size={15} /> },
-  { to: '/admin/asp-master',          label: 'ASP Master',                 icon: <ShieldCheck size={15} /> },
-];
+// Map icon string names from database (fa-*) to Lucide icons
+const getIcon = (iconName, size = 15) => {
+  if (!iconName) return <Folder size={size} />;
+  const n = iconName.toLowerCase().replace('fa-', '');
+  
+  if (n.includes('truck'))        return <Truck size={size} />;
+  if (n.includes('desktop'))      return <SlidersHorizontal size={size} />;
+  if (n.includes('cart') || n.includes('basket')) return <Package size={size} />;
+  if (n.includes('reply') || n.includes('undo'))  return <Undo2 size={size} />;
+  if (n.includes('briefcase'))    return <Briefcase size={size} />;
+  if (n.includes('bullhorn') || n.includes('target')) return <Target size={size} />;
+  if (n.includes('suitcase') || n.includes('cube')) return <Package size={size} />;
+  if (n.includes('calculator'))   return <Calculator size={size} />;
+  if (n.includes('list') || n.includes('table')) return <FileSpreadsheet size={size} />;
+  if (n.includes('file') || n.includes('text'))  return <FileText size={size} />;
+  if (n.includes('award'))        return <Award size={size} />;
+  if (n.includes('map-marker') || n.includes('location')) return <MapPin size={size} />;
+  if (n.includes('map'))          return <Map size={size} />;
+  if (n.includes('building'))     return <Building2 size={size} />;
+  if (n.includes('tag'))          return <Tag size={size} />;
+  if (n.includes('paint') || n.includes('brush')) return <Palette size={size} />;
+  if (n.includes('dollar') || n.includes('inr'))  return <CircleDollarSign size={size} />;
+  if (n.includes('user-plus'))    return <UserPlus size={size} />;
+  if (n.includes('user') || n.includes('group'))  return <Users2 size={size} />;
+  if (n.includes('sitemap') || n.includes('tree')) return <Network size={size} />;
+  if (n.includes('archive'))      return <Archive size={size} />;
+  if (n.includes('shield'))       return <ShieldCheck size={size} />;
+  if (n.includes('download'))     return <DownloadCloud size={size} />;
+  if (n.includes('cogs') || n.includes('gear')) return <Settings size={size} />;
+  if (n.includes('share') || n.includes('upload')) return <Send size={size} />;
+  if (n.includes('arrow'))        return <MoveRight size={size} />;
+  
+  return <Folder size={size} />;
+};
 
 export default function Sidebar() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  const [menuTree, setMenuTree] = useState([]);
+  const [openSections, setOpenSections] = useState({});
+  const [loading, setLoading] = useState(true);
+
+  // Fetch dynamic navigation tree from database
+  const fetchMenu = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch('/api/navigation', {
+        headers: { 'Authorization': token ? `Bearer ${token}` : '' }
+      });
+      const data = await res.json();
+      if (data.status === 'success' && Array.isArray(data.data)) {
+        setMenuTree(data.data);
+        
+        // Auto-open section matching current active route
+        const activeMap = {};
+        data.data.forEach(fn => {
+          const hasActive = fn.sub_functions?.some(sub => sub.file_name === location.pathname);
+          activeMap[fn.function_id] = hasActive ? true : true; // Default expanded for great UX
+        });
+        setOpenSections(activeMap);
+      }
+    } catch (err) {
+      console.error('Failed to load navigation menu:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchMenu();
+  }, []);
+
+  const toggleSection = (fnId) => {
+    setOpenSections(prev => ({ ...prev, [fnId]: !prev[fnId] }));
+  };
 
   const handleLogout = () => {
     logout();
     navigate('/login');
   };
 
-  const renderSection = (title, items) => (
-    <div key={title} style={{ marginBottom: '14px' }}>
-      <div className="sidebar-section" style={{ textTransform: 'uppercase', letterSpacing: '0.5px', fontSize: '11px', color: '#888', padding: '6px 16px', fontWeight: '600' }}>
-        {title}
-      </div>
-      {items.map(item => (
-        <NavLink
-          key={item.to}
-          to={item.to}
-          end={item.exact}
-          className={({ isActive }) => `sidebar-item${isActive ? ' active' : ''}`}
-          style={{ padding: '7px 16px', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '8px' }}
-        >
-          {item.icon}
-          <span>{item.label}</span>
-        </NavLink>
-      ))}
-    </div>
-  );
-
   return (
     <aside className="sidebar" style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
-      <div className="sidebar-logo">
-        <div className="logo-icon">IIL</div>
-        <div className="logo-text">
-          Innovatiview
-          <small>ERP Portal</small>
+      {/* Brand Header */}
+      <div className="sidebar-logo" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div className="logo-icon">IIL</div>
+          <div className="logo-text">
+            Innovatiview
+            <small>Dynamic ERP</small>
+          </div>
         </div>
+        <button onClick={fetchMenu} title="Sync Navigation from Database" style={{ background: 'none', border: 'none', color: '#999', cursor: 'pointer' }}>
+          <RefreshCw size={13} className={loading ? 'spin' : ''} />
+        </button>
       </div>
 
+      {/* Dynamic Nav Menu */}
       <nav className="sidebar-nav" style={{ flex: 1, overflowY: 'auto', paddingBottom: '20px' }}>
-        {renderSection('Audits & Operations', sheetItems)}
-        {renderSection('Logistics & Shipping', logisticsItems)}
-        {renderSection('Product Management', productItems)}
-        {renderSection('Vendors & Clients', vendorClientItems)}
-        {renderSection('CRM & Sales', crmItems)}
-        {renderSection('Master Management', adminItems)}
+        {loading && menuTree.length === 0 ? (
+          <div style={{ padding: '20px', textAlign: 'center', color: '#888', fontSize: '12px' }}>
+            Loading ERP Modules...
+          </div>
+        ) : menuTree.length === 0 ? (
+          <div style={{ padding: '20px', textAlign: 'center', color: '#888', fontSize: '12px' }}>
+            No active functions in database.
+          </div>
+        ) : (
+          menuTree.map(fn => {
+            const isOpen = openSections[fn.function_id] ?? true;
+            return (
+              <div key={fn.function_id} style={{ marginBottom: '6px' }}>
+                {/* Module / Function Header */}
+                <div
+                  onClick={() => toggleSection(fn.function_id)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '8px 16px',
+                    fontSize: '12px',
+                    fontWeight: '600',
+                    color: '#94a3b8',
+                    cursor: 'pointer',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.4px',
+                    userSelect: 'none',
+                    borderRadius: '4px',
+                    margin: '0 8px',
+                    transition: 'background 0.2s',
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.background = '#1e293b'}
+                  onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    {getIcon(fn.icon_img, 14)}
+                    <span>{fn.function_name}</span>
+                  </div>
+                  {isOpen ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
+                </div>
+
+                {/* Sub-Functions / Sub-Modules */}
+                {isOpen && (
+                  <div style={{ paddingLeft: '8px', marginTop: '2px' }}>
+                    {fn.sub_functions.map(sub => (
+                      <NavLink
+                        key={sub.id + sub.file_name}
+                        to={sub.file_name || '/'}
+                        className={({ isActive }) => `sidebar-item${isActive ? ' active' : ''}`}
+                        style={{ padding: '6px 16px 6px 28px', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '8px' }}
+                      >
+                        {getIcon(sub.icon_img, 14)}
+                        <span>{sub.sub_name}</span>
+                      </NavLink>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })
+        )}
       </nav>
 
+      {/* User Footer */}
       <div className="sidebar-footer">
         <div className="sidebar-user">
           <div className="user-avatar">

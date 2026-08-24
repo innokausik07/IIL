@@ -7,6 +7,7 @@ import GoogleSheetList from './pages/GoogleSheetList';
 import MovedSheetList from './pages/MovedSheetList';
 import CrossAuditList from './pages/CrossAuditList';
 import StoreStockList from './pages/StoreStockList';
+import CreateUser from './pages/CreateUser';
 
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
@@ -25,6 +26,7 @@ function AppRoutes() {
       <Route path="/moved-sheet" element={<ProtectedRoute><MovedSheetList /></ProtectedRoute>} />
       <Route path="/cross-audit" element={<ProtectedRoute><CrossAuditList /></ProtectedRoute>} />
       <Route path="/store-stock" element={<ProtectedRoute><StoreStockList /></ProtectedRoute>} />
+      <Route path="/admin/create-user" element={<ProtectedRoute><CreateUser /></ProtectedRoute>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

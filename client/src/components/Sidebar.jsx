@@ -2,7 +2,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import {
   LayoutGrid, FileSpreadsheet, MoveRight, SlidersHorizontal,
-  Package, LogOut, User, Database
+  Package, LogOut, User, Database, UserPlus
 } from 'lucide-react';
 
 const navItems = [
@@ -10,6 +10,7 @@ const navItems = [
   { to: '/moved-sheet', label: 'Moved Data', icon: <MoveRight size={16} /> },
   { to: '/cross-audit', label: 'Cross Audit', icon: <SlidersHorizontal size={16} /> },
   { to: '/store-stock', label: 'Store Stock', icon: <Package size={16} /> },
+  { to: '/admin/create-user', label: 'Create User', icon: <UserPlus size={16} /> },
 ];
 
 export default function Sidebar() {

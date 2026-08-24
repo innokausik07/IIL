@@ -39,21 +39,11 @@ export default function CreateUser() {
     setLoading(true);
 
     try {
-      const data = new FormData();
-      // Append all form fields
-      Object.keys(formData).forEach(key => {
-        data.append(key, formData[key]);
-      });
-      // Append file
-      if (profileImg) {
-        data.append('profileImg', profileImg);
-      }
-
-      // Configure axios with the token for auth
+      // Submit as JSON - no multer needed on server
       const token = localStorage.getItem('token');
-      const response = await axios.post(`${API_BASE}/users/create`, data, {
+      const response = await axios.post(`${API_BASE}/users/create`, formData, {
         headers: {
-          'Content-Type': 'multipart/form-data',
+          'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         }
       });

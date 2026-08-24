@@ -15,7 +15,7 @@ const createUser = async (req, res) => {
       status
     } = req.body;
 
-    const profileImg = req.file ? req.file.filename : null;
+    const profileImg = null; // Image upload coming soon
 
     if (!userName || !password) {
       return res.status(400).json({ status: 'error', message: 'User Name and Password are required.' });

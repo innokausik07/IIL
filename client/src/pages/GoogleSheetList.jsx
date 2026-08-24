@@ -427,7 +427,6 @@ export default function GoogleSheetList() {
             </div>
           </div>
         </div>
-      </div>
 
       {/* ── Assign Modal ────────────────────────────────────────────────── */}
       {assignModal && (

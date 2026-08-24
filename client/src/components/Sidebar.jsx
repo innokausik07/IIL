@@ -5,7 +5,8 @@ import {
   Package, LogOut, UserPlus, MapPin,
   Map, Building2, Tag, Palette, Receipt, Truck, Settings,
   Layers, GitFork, Cpu, CircleDollarSign, Users2, Briefcase,
-  Target, FileText, Award, Archive, ShieldCheck
+  Target, FileText, Award, Archive, ShieldCheck,
+  Calculator, Send, DownloadCloud, Undo2, Navigation, DollarSign
 } from 'lucide-react';
 
 const sheetItems = [
@@ -13,6 +14,15 @@ const sheetItems = [
   { to: '/moved-sheet', label: 'Moved Data', icon: <MoveRight size={15} /> },
   { to: '/cross-audit', label: 'Cross Audit', icon: <SlidersHorizontal size={15} /> },
   { to: '/store-stock', label: 'Store Stock', icon: <Package size={15} /> },
+];
+
+const logisticsItems = [
+  { to: '/logistics/calculator',         label: 'Freight Calculator',    icon: <Calculator size={15} /> },
+  { to: '/logistics/delivery-challan',   label: 'Delivery Challan (DC)', icon: <Send size={15} /> },
+  { to: '/logistics/grn-receipt',        label: 'GRN / Inward Goods',    icon: <DownloadCloud size={15} /> },
+  { to: '/logistics/return-dc',          label: 'Return DC / Reverse',   icon: <Undo2 size={15} /> },
+  { to: '/logistics/dispatch-tracking',  label: 'Shipment Tracking',     icon: <Navigation size={15} /> },
+  { to: '/logistics/courier-rates',      label: 'Courier Rate Cards',    icon: <DollarSign size={15} /> },
 ];
 
 const productItems = [
@@ -89,6 +99,7 @@ export default function Sidebar() {
 
       <nav className="sidebar-nav" style={{ flex: 1, overflowY: 'auto', paddingBottom: '20px' }}>
         {renderSection('Audits & Operations', sheetItems)}
+        {renderSection('Logistics & Shipping', logisticsItems)}
         {renderSection('Product Management', productItems)}
         {renderSection('Vendors & Clients', vendorClientItems)}
         {renderSection('CRM & Sales', crmItems)}

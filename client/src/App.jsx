@@ -8,6 +8,14 @@ import MovedSheetList from './pages/MovedSheetList';
 import CrossAuditList from './pages/CrossAuditList';
 import StoreStockList from './pages/StoreStockList';
 
+// Logistics Management
+import LogisticsCalculator from './pages/LogisticsCalculator';
+import DeliveryChallanMaster from './pages/DeliveryChallanMaster';
+import GrnMaster from './pages/GrnMaster';
+import ReturnDcMaster from './pages/ReturnDcMaster';
+import ShipmentTracking from './pages/ShipmentTracking';
+import CourierRateMaster from './pages/CourierRateMaster';
+
 // Admin / Core Masters
 import CreateUser from './pages/CreateUser';
 import LocationMaster from './pages/LocationMaster';
@@ -56,6 +64,14 @@ function AppRoutes() {
       <Route path="/moved-sheet" element={<ProtectedRoute><MovedSheetList /></ProtectedRoute>} />
       <Route path="/cross-audit" element={<ProtectedRoute><CrossAuditList /></ProtectedRoute>} />
       <Route path="/store-stock" element={<ProtectedRoute><StoreStockList /></ProtectedRoute>} />
+
+      {/* Logistics & Shipping */}
+      <Route path="/logistics/calculator"        element={<ProtectedRoute><LogisticsCalculator /></ProtectedRoute>} />
+      <Route path="/logistics/delivery-challan"  element={<ProtectedRoute><DeliveryChallanMaster /></ProtectedRoute>} />
+      <Route path="/logistics/grn-receipt"       element={<ProtectedRoute><GrnMaster /></ProtectedRoute>} />
+      <Route path="/logistics/return-dc"         element={<ProtectedRoute><ReturnDcMaster /></ProtectedRoute>} />
+      <Route path="/logistics/dispatch-tracking" element={<ProtectedRoute><ShipmentTracking /></ProtectedRoute>} />
+      <Route path="/logistics/courier-rates"     element={<ProtectedRoute><CourierRateMaster /></ProtectedRoute>} />
 
       {/* Product Management */}
       <Route path="/products/product-master"     element={<ProtectedRoute><ProductMaster /></ProtectedRoute>} />

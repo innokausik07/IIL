@@ -10,6 +10,9 @@ const navItems = [
   { to: '/moved-sheet', label: 'Moved Data', icon: <MoveRight size={16} /> },
   { to: '/cross-audit', label: 'Cross Audit', icon: <SlidersHorizontal size={16} /> },
   { to: '/store-stock', label: 'Store Stock', icon: <Package size={16} /> },
+];
+
+const adminItems = [
   { to: '/admin/create-user', label: 'Create User', icon: <UserPlus size={16} /> },
 ];
 
@@ -35,6 +38,20 @@ export default function Sidebar() {
       <nav className="sidebar-nav">
         <div className="sidebar-section">Main Menu</div>
         {navItems.map(item => (
+          <NavLink
+            key={item.to}
+            to={item.to}
+            end={item.exact}
+            className={({ isActive }) => `sidebar-item${isActive ? ' active' : ''}`}
+          >
+            {item.icon}
+            {item.label}
+          </NavLink>
+        ))}
+
+        {/* Admin Section */}
+        <div className="sidebar-section" style={{ marginTop: '20px' }}>Admin</div>
+        {adminItems.map(item => (
           <NavLink
             key={item.to}
             to={item.to}

@@ -11,6 +11,8 @@ export default function LogisticsCalculator() {
     mode: 'Surface',
     carrier: 'Blue Dart'
   });
+  const [result, setResult] = useState(null);
+  const [loading, setLoading] = useState(false);
   const [originInfo, setOriginInfo] = useState('New Delhi, Delhi');
   const [destInfo, setDestInfo] = useState('Mumbai, Maharashtra');
 

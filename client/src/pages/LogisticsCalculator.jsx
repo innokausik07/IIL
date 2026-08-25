@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import toast from 'react-hot-toast';
 import { Calculator, Truck, MapPin, Scale, ArrowRight, CheckCircle2 } from 'lucide-react';
+import { lookupPincode } from '../utils/pincodeLookup';
 
 export default function LogisticsCalculator() {
   const [form, setForm] = useState({
@@ -10,12 +11,21 @@ export default function LogisticsCalculator() {
     mode: 'Surface',
     carrier: 'Blue Dart'
   });
-  const [result, setResult] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [originInfo, setOriginInfo] = useState('New Delhi, Delhi');
+  const [destInfo, setDestInfo] = useState('Mumbai, Maharashtra');
 
-  const handleChange = (e) => {
+  const handleChange = async (e) => {
     const { name, value } = e.target;
     setForm(prev => ({ ...prev, [name]: value }));
+
+    const clean = value.replace(/\D/g, '');
+    if (clean.length === 6) {
+      const res = await lookupPincode(clean);
+      if (res) {
+        if (name === 'origin_pin') setOriginInfo(`${res.city}, ${res.state}`);
+        if (name === 'dest_pin') setDestInfo(`${res.city}, ${res.state}`);
+      }
+    }
   };
 
   const handleCalculate = async (e) => {
@@ -66,14 +76,16 @@ export default function LogisticsCalculator() {
               <label style={{ fontSize: '13px', fontWeight: '500', display: 'block', marginBottom: '4px' }}>
                 <MapPin size={13} style={{ display: 'inline', marginRight: '4px' }} /> Origin Pincode
               </label>
-              <input name="origin_pin" value={form.origin_pin} onChange={handleChange} required placeholder="e.g. 110001 (Delhi)" style={fs} />
+              <input name="origin_pin" value={form.origin_pin} onChange={handleChange} required placeholder="e.g. 110001" style={fs} />
+              {originInfo && <small style={{ color: '#2563eb', display: 'block', marginTop: '3px' }}>📍 {originInfo}</small>}
             </div>
 
             <div style={{ marginBottom: '14px' }}>
               <label style={{ fontSize: '13px', fontWeight: '500', display: 'block', marginBottom: '4px' }}>
                 <MapPin size={13} style={{ display: 'inline', marginRight: '4px' }} /> Destination Pincode
               </label>
-              <input name="dest_pin" value={form.dest_pin} onChange={handleChange} required placeholder="e.g. 400001 (Mumbai)" style={fs} />
+              <input name="dest_pin" value={form.dest_pin} onChange={handleChange} required placeholder="e.g. 400001" style={fs} />
+              {destInfo && <small style={{ color: '#2563eb', display: 'block', marginTop: '3px' }}>📍 {destInfo}</small>}
             </div>
 
             <div style={{ marginBottom: '14px' }}>

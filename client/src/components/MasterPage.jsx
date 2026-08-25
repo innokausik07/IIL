@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
 import { Plus, RefreshCw, Pencil, Ban, ArrowLeft, Search, CheckCircle2, Eye } from 'lucide-react';
+import { lookupPincode } from '../utils/pincodeLookup';
 
 /**
  * Generic Master Page Component
@@ -38,9 +39,33 @@ export default function MasterPage({ title, icon, apiPath, fields, columns }) {
 
   useEffect(() => { fetchList(); }, []);
 
-  const handleChange = (e) => {
+  const handleChange = async (e) => {
     const { name, value } = e.target;
     setForm(prev => ({ ...prev, [name]: value }));
+
+    // Global Auto-Pincode Detection
+    if (name.toLowerCase().includes('pin') || name.toLowerCase().includes('zip')) {
+      const cleanPin = value.replace(/\D/g, '');
+      if (cleanPin.length === 6) {
+        const res = await lookupPincode(cleanPin);
+        if (res) {
+          setForm(prev => {
+            const next = { ...prev };
+            fields.forEach(f => {
+              const fname = f.name.toLowerCase();
+              if (fname === 'city' || fname === 'district' || fname === 'city_name') {
+                next[f.name] = res.city;
+              }
+              if (fname === 'state' || fname === 'state_name') {
+                next[f.name] = res.state;
+              }
+            });
+            return next;
+          });
+          toast.success(`Auto-filled: ${res.city}, ${res.state}`);
+        }
+      }
+    }
   };
 
   const handleAddNew = () => {

@@ -3,6 +3,8 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { MapPin, ArrowLeft, Save } from 'lucide-react';
 
+import { lookupPincode } from '../utils/pincodeLookup';
+
 const INIT = {
   location_name: '', contact_person: '', department: '', designation: '',
   contact_no: '', contact_email: '', pan: '', gstin: '',
@@ -18,6 +20,7 @@ export default function LocationForm() {
   const [form, setForm]         = useState(INIT);
   const [loading, setLoading]   = useState(false);
   const [fetching, setFetching] = useState(false);
+  const [pinLoading, setPinLoading] = useState(false);
 
   const token = localStorage.getItem('token');
   const headers = { 'Content-Type': 'application/json', 'Authorization': token ? `Bearer ${token}` : '' };
@@ -54,9 +57,27 @@ export default function LocationForm() {
     }
   }, [editId]);
 
-  const handleChange = (e) => {
+  const handleChange = async (e) => {
     const { name, value } = e.target;
     setForm(prev => ({ ...prev, [name]: value }));
+
+    // Auto-detect 6 digit pincode and fetch city/state
+    if (name === 'pincode') {
+      const cleanPin = value.replace(/\D/g, '');
+      if (cleanPin.length === 6) {
+        setPinLoading(true);
+        const res = await lookupPincode(cleanPin);
+        setPinLoading(false);
+        if (res && res.city && res.state) {
+          setForm(prev => ({
+            ...prev,
+            city: res.city,
+            state: res.state
+          }));
+          toast.success(`Auto-filled: ${res.city}, ${res.state}`);
+        }
+      }
+    }
   };
 
   const handleSubmit = async (e) => {

@@ -6,6 +6,7 @@ import { UserPlus, Users, RefreshCw, Pencil, Ban, CheckCircle2, Search } from 'l
 export default function UserMaster() {
   const navigate = useNavigate();
   const [users, setUsers] = useState([]);
+  const [userTypes, setUserTypes] = useState([]);
   const [fetching, setFetching] = useState(false);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
@@ -36,6 +37,16 @@ export default function UserMaster() {
 
   useEffect(() => {
     fetchUsers();
+
+    // Fetch usertypes for role display and filter
+    fetch('/api/masters/usertype_master', { headers })
+      .then(res => res.json())
+      .then(data => {
+        if (data.status === 'success' && data.data) {
+          setUserTypes(data.data);
+        }
+      })
+      .catch(() => console.error('Failed to load user types'));
   }, []);
 
   const handleToggleStatus = async (id) => {
@@ -54,10 +65,22 @@ export default function UserMaster() {
   };
 
   const getRoleBadge = (utype) => {
-    const u = String(utype);
-    if (u === '1') return <span style={{ padding: '2px 8px', borderRadius: '12px', fontSize: '11px', background: '#fee2e2', color: '#991b1b', fontWeight: '600' }}>Admin (1)</span>;
-    if (u === '2') return <span style={{ padding: '2px 8px', borderRadius: '12px', fontSize: '11px', background: '#e0e7ff', color: '#3730a3', fontWeight: '600' }}>Manager (2)</span>;
-    return <span style={{ padding: '2px 8px', borderRadius: '12px', fontSize: '11px', background: '#f1f5f9', color: '#475569' }}>Standard ({u || '9'})</span>;
+    const u = String(utype || '');
+    const found = userTypes.find(t => String(t.id) === u || String(t.utype).toLowerCase() === u.toLowerCase() || String(t.typename).toLowerCase() === u.toLowerCase());
+    const roleName = found ? found.typename : (u === '1' ? 'ADMIN' : (u === '2' ? 'Manager' : `User (${u || 'Default'})`));
+
+    const isAdm = roleName.toLowerCase().includes('admin');
+    const isMgr = roleName.toLowerCase().includes('manager') || roleName.toLowerCase().includes('lead');
+
+    return (
+      <span style={{
+        padding: '2px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: '600',
+        background: isAdm ? '#fee2e2' : (isMgr ? '#e0e7ff' : '#f1f5f9'),
+        color: isAdm ? '#991b1b' : (isMgr ? '#3730a3' : '#334155')
+      }}>
+        {roleName}
+      </span>
+    );
   };
 
   const filteredUsers = users.filter(u => {
@@ -65,7 +88,10 @@ export default function UserMaster() {
     if (statusFilter !== 'ALL' && String(u.status ?? '1') !== statusFilter) return false;
 
     // User Type Filter
-    if (userTypeFilter !== 'ALL' && String(u.utype ?? '') !== userTypeFilter) return false;
+    if (userTypeFilter !== 'ALL') {
+      const userRole = String(u.utype ?? '');
+      if (userRole !== userTypeFilter) return false;
+    }
 
     // Search query
     const q = search.toLowerCase();
@@ -73,7 +99,8 @@ export default function UserMaster() {
       (u.full_name || '').toLowerCase().includes(q) ||
       (u.emp_id || '').toLowerCase().includes(q) ||
       (u.email || '').toLowerCase().includes(q) ||
-      (u.mobile || '').toLowerCase().includes(q)
+      (u.mobile || '').toLowerCase().includes(q) ||
+      (u.owner || '').toLowerCase().includes(q)
     );
   });
 
@@ -120,9 +147,11 @@ export default function UserMaster() {
                 style={{ padding: '5px 10px', border: '1px solid #cbd5e1', borderRadius: '4px', fontSize: '12px', background: '#fff' }}
               >
                 <option value="ALL">All Roles</option>
-                <option value="1">Admin (1)</option>
-                <option value="2">Manager (2)</option>
-                <option value="9">Standard User (9)</option>
+                {userTypes.map(t => (
+                  <option key={t.id} value={t.id}>
+                    {t.typename}
+                  </option>
+                ))}
               </select>
             </div>
 
@@ -130,10 +159,10 @@ export default function UserMaster() {
               <Search size={14} style={{ position: 'absolute', left: '10px', top: '8px', color: '#94a3b8' }} />
               <input
                 type="text"
-                placeholder="Search name, emp ID, email..."
+                placeholder="Search name, emp ID, location..."
                 value={search}
                 onChange={e => setSearch(e.target.value)}
-                style={{ padding: '5px 10px 5px 30px', border: '1px solid #cbd5e1', borderRadius: '4px', fontSize: '12px', width: '220px' }}
+                style={{ padding: '5px 10px 5px 30px', border: '1px solid #cbd5e1', borderRadius: '4px', fontSize: '12px', width: '230px' }}
               />
             </div>
           </div>
@@ -162,7 +191,7 @@ export default function UserMaster() {
                   <th style={{ padding: '9px 12px', textAlign: 'left' }}>User Type</th>
                   <th style={{ padding: '9px 12px', textAlign: 'left' }}>Phone No.</th>
                   <th style={{ padding: '9px 12px', textAlign: 'left' }}>Email-id</th>
-                  <th style={{ padding: '9px 12px', textAlign: 'left' }}>Owner</th>
+                  <th style={{ padding: '9px 12px', textAlign: 'left' }}>Owner (Location)</th>
                   <th style={{ padding: '9px 12px', textAlign: 'center' }}>Status</th>
                   <th style={{ padding: '9px 12px', textAlign: 'center' }}>View/Edit</th>
                 </tr>
@@ -170,7 +199,7 @@ export default function UserMaster() {
               <tbody>
                 {filteredUsers.length === 0 ? (
                   <tr>
-                    <td colSpan="9" style={{ textAlign: 'center', padding: '28px', color: '#94a3b8' }}>
+                    <td colSpan={9} style={{ textAlign: 'center', padding: '28px', color: '#94a3b8' }}>
                       No users found
                     </td>
                   </tr>
@@ -183,7 +212,9 @@ export default function UserMaster() {
                       <td style={{ padding: '9px 12px' }}>{getRoleBadge(u.utype)}</td>
                       <td style={{ padding: '9px 12px' }}>{u.mobile || '—'}</td>
                       <td style={{ padding: '9px 12px' }}>{u.email || '—'}</td>
-                      <td style={{ padding: '9px 12px' }}>{u.owner || '—'}</td>
+                      <td style={{ padding: '9px 12px' }}>
+                        <span style={{ fontWeight: '500', color: '#0369a1' }}>{u.owner || '—'}</span>
+                      </td>
                       <td style={{ padding: '9px 12px', textAlign: 'center' }}>
                         <span style={{
                           padding: '2px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: '500',

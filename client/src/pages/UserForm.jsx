@@ -22,6 +22,8 @@ export default function UserForm() {
   const editId = paramId || searchParams.get('id');
 
   const [form, setForm] = useState(INIT_FORM);
+  const [userTypes, setUserTypes] = useState([]);
+  const [locations, setLocations] = useState([]);
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(false);
 
@@ -32,8 +34,28 @@ export default function UserForm() {
   };
 
   useEffect(() => {
+    // 1. Fetch User Types from usertype_master table
+    fetch('/api/masters/usertype_master', { headers })
+      .then(res => res.json())
+      .then(data => {
+        if (data.status === 'success' && data.data) {
+          setUserTypes(data.data);
+        }
+      })
+      .catch(() => console.error('Failed to load user types'));
+
+    // 2. Fetch Locations from locations table
+    fetch('/api/locations', { headers })
+      .then(res => res.json())
+      .then(data => {
+        if (data.status === 'success' && data.data) {
+          setLocations(data.data);
+        }
+      })
+      .catch(() => console.error('Failed to load locations'));
+
+    // 3. If editing, fetch existing user data
     if (editId) {
-      // Fetch user data for editing
       setFetching(true);
       fetch('/api/users', { headers })
         .then(res => res.json())
@@ -136,13 +158,18 @@ export default function UserForm() {
 
             {/* Left Column */}
             <div>
+              {/* User Type from usertype_master */}
               <div style={rowStyle}>
-                <label style={labelStyle}>User Type</label>
-                <select name="userType" value={form.userType} onChange={handleChange} style={fieldStyle}>
-                  <option value="">-- Please Select --</option>
-                  <option value="1">Admin (1)</option>
-                  <option value="2">Manager (2)</option>
-                  <option value="9">Standard User (9)</option>
+                <label style={labelStyle}>User Type <span style={{ color: '#ef4444' }}>*</span></label>
+                <select name="userType" value={form.userType} onChange={handleChange} required style={fieldStyle}>
+                  <option value="">-- Select User Type --</option>
+                  {userTypes
+                    .filter(u => u.status !== 'D')
+                    .map(u => (
+                      <option key={u.id} value={u.id}>
+                        {u.typename} {u.utype ? `(${u.utype})` : ''}
+                      </option>
+                    ))}
                 </select>
               </div>
 
@@ -177,12 +204,18 @@ export default function UserForm() {
 
             {/* Right Column */}
             <div>
+              {/* Owner from locations table */}
               <div style={rowStyle}>
-                <label style={labelStyle}>Owner</label>
+                <label style={labelStyle}>Owner (Location)</label>
                 <select name="owner" value={form.owner} onChange={handleChange} style={fieldStyle}>
-                  <option value="">-- Please Select --</option>
-                  <option value="Innovatiview">Innovatiview</option>
-                  <option value="Vendor">Vendor</option>
+                  <option value="">-- Select Location / Owner --</option>
+                  {locations
+                    .filter(l => l.status === '1' || l.status === 1)
+                    .map(l => (
+                      <option key={l.id} value={l.location_name}>
+                        {l.location_name} {l.city ? `(${l.city})` : ''}
+                      </option>
+                    ))}
                 </select>
               </div>
 

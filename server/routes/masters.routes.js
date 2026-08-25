@@ -58,6 +58,7 @@ makeRoutes('function_master',     'id', ['function_id', 'function_name', 'descri
 makeRoutes('sub_function_master', 'id', ['function_id', 'sub_name', 'sub_seq', 'file_name', 'tab', 'icon_img', 'status', 'utype']);
 
 // ─── 2. Core Masters ──────────────────────────────────────────────────────────
+makeRoutes('usertype_master',  'id',  ['typename', 'utype', 'refid', 'status']);
 makeRoutes('state_master',     'sno', ['state', 'zone', 'code', 'statecode', 'country', 'status']);
 makeRoutes('district_master',  'id',  ['city', 'state', 'country', 'status']);
 makeRoutes('make_master',      'id',  ['make', 'status']);

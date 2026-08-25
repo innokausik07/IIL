@@ -54,14 +54,14 @@ export default function Login() {
 
         <form onSubmit={handleSubmit}>
           <div className="form-group">
-            <label className="form-label">Username</label>
+            <label className="form-label">Username / Email / Emp ID</label>
             <input
               id="login-username"
               type="text"
               className="form-control"
               value={username}
               onChange={e => setUsername(e.target.value)}
-              placeholder="Enter your username"
+              placeholder="Enter username, email or Emp ID"
               autoComplete="username"
               autoFocus
             />
@@ -121,7 +121,7 @@ export default function Login() {
 
         <div style={{ marginTop: 20, paddingTop: 16, borderTop: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: 6, color: '#94a3b8', fontSize: 11 }}>
           <Database size={12} />
-          Connected to MySQL · innovatiview_2
+          Connected to MySQL · innovatiview_new
         </div>
       </div>
     </div>

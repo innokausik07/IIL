@@ -1,53 +1,72 @@
 const db = require('../config/db');
 const jwt = require('jsonwebtoken');
 
-// POST /api/auth/login
+// POST /api/auth/login - Authenticate against `users` table
 const login = async (req, res) => {
   const { username, password } = req.body;
   if (!username || !password) {
-    return res.status(400).json({ status: 'error', message: 'Username and password are required.' });
+    return res.status(400).json({ status: 'error', message: 'Username/Email and password are required.' });
   }
 
   try {
-    // Query the admin_users table (which you just created in innovatiview_2)
+    const searchVal = username.trim();
+
+    // Query the `users` table matching by full_name, email, or emp_id
     const [rows] = await db.execute(
-      'SELECT username, password, utype, status FROM admin_users WHERE username = ? LIMIT 1',
-      [username.trim()]
+      `SELECT id, full_name, email, password, emp_id, utype, owner, mobile, status 
+       FROM users 
+       WHERE full_name = ? OR email = ? OR emp_id = ? 
+       LIMIT 1`,
+      [searchVal, searchVal, searchVal]
     );
 
     if (rows.length === 0) {
-      return res.status(401).json({ status: 'error', message: 'Invalid credentials.' });
+      return res.status(401).json({ status: 'error', message: 'Invalid credentials. User not found.' });
     }
 
     const user = rows[0];
 
-    // Check if user is active
-    if (user.status && user.status !== '1' && user.status !== 1) {
-      return res.status(401).json({ status: 'error', message: 'Account is inactive.' });
+    // Check if user account is active
+    if (user.status !== undefined && user.status !== null && String(user.status) !== '1') {
+      return res.status(401).json({ status: 'error', message: 'Account is deactivated. Please contact Administrator.' });
     }
 
-    // Compare password — support both plaintext (legacy) and hashed
+    // Compare password
     let passwordValid = false;
-    if (user.password === password) {
-      // Legacy plaintext match (as used in existing PHP system)
+    if (String(user.password).trim() === String(password).trim()) {
       passwordValid = true;
     }
 
     if (!passwordValid) {
-      return res.status(401).json({ status: 'error', message: 'Invalid credentials.' });
+      return res.status(401).json({ status: 'error', message: 'Invalid password.' });
     }
 
-    // Fetch allowed actions for this user
-    const [actions] = await db.execute(
-      "SELECT actabid FROM access_action_tab WHERE userid = ? AND status = '1'",
-      [user.username]
-    );
-    const allowedActions = actions.map(a => parseInt(a.actabid));
+    // Fetch allowed actions (if table exists)
+    let allowedActions = [];
+    try {
+      const [actions] = await db.execute(
+        "SELECT actabid FROM access_action_tab WHERE userid = ? AND status = '1'",
+        [user.full_name || user.email]
+      );
+      allowedActions = actions.map(a => parseInt(a.actabid));
+    } catch (e) {
+      // access_action_tab is optional
+    }
+
+    const displayName = user.full_name || user.email || user.emp_id || 'User';
 
     // Sign JWT
     const token = jwt.sign(
-      { userid: user.username, utype: user.utype },
-      process.env.JWT_SECRET,
+      {
+        id: user.id,
+        userid: displayName,
+        full_name: user.full_name,
+        email: user.email,
+        emp_id: user.emp_id,
+        utype: user.utype || '9',
+        owner: user.owner
+      },
+      process.env.JWT_SECRET || 'innovatiview_secret_key',
       { expiresIn: '12h' }
     );
 
@@ -55,15 +74,20 @@ const login = async (req, res) => {
       status: 'success',
       token,
       user: {
-        userid: user.username,
-        utype: user.utype,
+        id: user.id,
+        userid: displayName,
+        full_name: user.full_name,
+        email: user.email,
+        emp_id: user.emp_id,
+        utype: user.utype || '9',
+        owner: user.owner,
         allowedActions
       }
     });
   } catch (err) {
     console.error('Login error:', err.code, err.message);
     if (err.code === 'ECONNREFUSED' || err.code === 'ER_ACCESS_DENIED_ERROR' || err.code === 'PROTOCOL_CONNECTION_LOST') {
-      return res.status(500).json({ status: 'error', message: 'Cannot connect to database. Please ensure the backend is deployed on the Plesk server where MySQL is accessible.' });
+      return res.status(500).json({ status: 'error', message: 'Cannot connect to database.' });
     }
     return res.status(500).json({ status: 'error', message: 'Server error during login: ' + err.message });
   }
@@ -72,11 +96,15 @@ const login = async (req, res) => {
 // GET /api/auth/me
 const me = async (req, res) => {
   try {
-    const [actions] = await db.execute(
-      "SELECT actabid FROM access_action_tab WHERE userid = ? AND status = '1'",
-      [req.user.userid]
-    );
-    const allowedActions = actions.map(a => parseInt(a.actabid));
+    let allowedActions = [];
+    try {
+      const [actions] = await db.execute(
+        "SELECT actabid FROM access_action_tab WHERE userid = ? AND status = '1'",
+        [req.user.userid || req.user.full_name]
+      );
+      allowedActions = actions.map(a => parseInt(a.actabid));
+    } catch (e) {}
+
     return res.json({
       status: 'success',
       user: { ...req.user, allowedActions }
@@ -86,36 +114,31 @@ const me = async (req, res) => {
   }
 };
 
-// POST /api/auth/signup
+// POST /api/auth/signup - Insert into `users` table
 const signup = async (req, res) => {
-  const { username, password, name } = req.body;
+  const { username, password, name, email, mobile } = req.body;
   if (!username || !password) {
     return res.status(400).json({ status: 'error', message: 'Username and password are required.' });
   }
 
   try {
-    // Check if user already exists
-    const [existing] = await db.execute('SELECT username FROM admin_users WHERE username = ?', [username.trim()]);
+    const [existing] = await db.execute(
+      'SELECT id FROM users WHERE full_name = ? OR email = ? LIMIT 1',
+      [username.trim(), email || username.trim()]
+    );
     if (existing.length > 0) {
-      return res.status(400).json({ status: 'error', message: 'Username already exists.' });
+      return res.status(400).json({ status: 'error', message: 'User already exists with this name or email.' });
     }
 
-    // Default values for new signup: utype=9 (standard user), status=1 (active)
     const [result] = await db.execute(
-      'INSERT INTO admin_users (username, password, name, utype, status) VALUES (?, ?, ?, ?, ?)',
-      [username.trim(), password, name || username.trim(), '9', '1']
+      'INSERT INTO users (full_name, email, password, mobile, utype, status) VALUES (?, ?, ?, ?, ?, ?)',
+      [name || username.trim(), email || '', password, mobile || '', '9', '1']
     );
 
-    // Give default access to tabs 1, 2, 3, 4 (Google Sheets, Moved, etc.)
-    const defaultTabs = ['1', '2', '3', '4'];
-    for (const tab of defaultTabs) {
-      await db.execute('INSERT INTO access_action_tab (userid, actabid, status) VALUES (?, ?, ?)', [username.trim(), tab, '1']);
-    }
-
-    res.json({ status: 'success', message: 'Signup successful! You can now log in.' });
+    res.json({ status: 'success', message: 'Signup successful! You can now log in.', id: result.insertId });
   } catch (error) {
     console.error('Signup Error:', error);
-    res.status(500).json({ status: 'error', message: 'Internal server error.' });
+    res.status(500).json({ status: 'error', message: 'Internal server error: ' + error.message });
   }
 };
 

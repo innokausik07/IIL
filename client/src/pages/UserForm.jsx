@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { UserPlus, ArrowLeft, Save } from 'lucide-react';
+import { UserPlus, ArrowLeft, Save, Upload, X, User } from 'lucide-react';
 
 const INIT_FORM = {
   userType: '',
@@ -13,15 +13,18 @@ const INIT_FORM = {
   mobileNo: '',
   emailId: '',
   status: '1',
+  profileImg: null,
 };
 
 export default function UserForm() {
   const navigate = useNavigate();
+  const fileInputRef = useRef(null);
   const { id: paramId } = useParams();
   const [searchParams] = useSearchParams();
   const editId = paramId || searchParams.get('id');
 
   const [form, setForm] = useState(INIT_FORM);
+  const [imgPreview, setImgPreview] = useState(null);
   const [userTypes, setUserTypes] = useState([]);
   const [locations, setLocations] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -73,7 +76,11 @@ export default function UserForm() {
                 mobileNo: u.mobile ?? '',
                 emailId: u.email ?? '',
                 status: String(u.status ?? '1'),
+                profileImg: u.profile_img || null,
               });
+              if (u.profile_img) {
+                setImgPreview(u.profile_img);
+              }
             }
           }
         })
@@ -85,6 +92,39 @@ export default function UserForm() {
   const handleChange = (e) => {
     const { name, value } = e.target;
     setForm(prev => ({ ...prev, [name]: value }));
+  };
+
+  // Image Selection & Base64 preview
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please select an image file (PNG, JPG, JPEG)');
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Image size must be under 5MB');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const base64 = reader.result;
+      setImgPreview(base64);
+      setForm(prev => ({ ...prev, profileImg: base64 }));
+      toast.success('Image selected!');
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleRemoveImage = () => {
+    setImgPreview(null);
+    setForm(prev => ({ ...prev, profileImg: null }));
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -239,11 +279,49 @@ export default function UserForm() {
                 <input type="text" name="altMobile" value={form.altMobile} onChange={handleChange} style={fieldStyle} placeholder="Alternate contact" />
               </div>
 
+              {/* Profile Image with Live Preview */}
               <div style={rowStyle}>
                 <label style={labelStyle}>Profile Img.</label>
                 <div style={{ flex: 1 }}>
-                  <input type="file" accept="image/*" style={fieldStyle} disabled title="Image upload coming soon" />
-                  <small style={{ color: '#94a3b8', fontSize: '11px' }}>Standard 220px × 220px</small>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '6px' }}>
+                    {/* Thumbnail Preview */}
+                    <div style={{
+                      width: '54px', height: '54px', borderRadius: '8px', border: '1px solid #cbd5e1',
+                      background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      overflow: 'hidden', flexShrink: 0
+                    }}>
+                      {imgPreview ? (
+                        <img src={imgPreview} alt="Preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      ) : (
+                        <User size={26} color="#94a3b8" />
+                      )}
+                    </div>
+
+                    {/* Choose file & Remove button */}
+                    <div style={{ flex: 1 }}>
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/png, image/jpeg, image/jpg, image/webp"
+                        onChange={handleImageChange}
+                        style={{ fontSize: '12px', width: '100%' }}
+                      />
+                      {imgPreview && (
+                        <button
+                          type="button"
+                          onClick={handleRemoveImage}
+                          style={{
+                            display: 'inline-flex', alignItems: 'center', gap: '3px',
+                            marginTop: '4px', fontSize: '11px', color: '#ef4444', background: 'none',
+                            border: 'none', cursor: 'pointer', padding: 0
+                          }}
+                        >
+                          <X size={12} /> Remove image
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  <small style={{ color: '#64748b', fontSize: '11px', display: 'block' }}>Standard 220px × 220px (Max 5MB)</small>
                 </div>
               </div>
             </div>

@@ -208,7 +208,18 @@ export default function UserMaster() {
                     <tr key={u.id} style={{ borderBottom: '1px solid #f1f5f9', background: idx % 2 === 0 ? '#fff' : '#fafafa' }}>
                       <td style={{ padding: '9px 12px' }}>{idx + 1}</td>
                       <td style={{ padding: '9px 12px', fontWeight: '500' }}>{u.emp_id || `USR_${u.id}`}</td>
-                      <td style={{ padding: '9px 12px', fontWeight: '600', color: '#1e293b' }}>{u.full_name}</td>
+                      <td style={{ padding: '9px 12px', fontWeight: '600', color: '#1e293b' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          {u.profile_img ? (
+                            <img src={u.profile_img} alt="" style={{ width: '28px', height: '28px', borderRadius: '50%', objectFit: 'cover', border: '1px solid #cbd5e1' }} />
+                          ) : (
+                            <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: '#e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 'bold', color: '#475569' }}>
+                              {(u.full_name || 'U').charAt(0).toUpperCase()}
+                            </div>
+                          )}
+                          <span>{u.full_name}</span>
+                        </div>
+                      </td>
                       <td style={{ padding: '9px 12px' }}>{getRoleBadge(u.utype)}</td>
                       <td style={{ padding: '9px 12px' }}>{u.mobile || '—'}</td>
                       <td style={{ padding: '9px 12px' }}>{u.email || '—'}</td>

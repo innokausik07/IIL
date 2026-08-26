@@ -13,7 +13,7 @@ const login = async (req, res) => {
 
     // Query the `users` table matching by full_name, email, or emp_id
     const [rows] = await db.execute(
-      `SELECT id, full_name, email, password, emp_id, utype, owner, mobile, status 
+      `SELECT id, full_name, email, password, emp_id, utype, owner, mobile, profile_img, status 
        FROM users 
        WHERE full_name = ? OR email = ? OR emp_id = ? 
        LIMIT 1`,
@@ -64,7 +64,8 @@ const login = async (req, res) => {
         email: user.email,
         emp_id: user.emp_id,
         utype: user.utype || '9',
-        owner: user.owner
+        owner: user.owner,
+        profile_img: user.profile_img || null
       },
       process.env.JWT_SECRET || 'innovatiview_secret_key',
       { expiresIn: '12h' }
@@ -81,6 +82,7 @@ const login = async (req, res) => {
         emp_id: user.emp_id,
         utype: user.utype || '9',
         owner: user.owner,
+        profile_img: user.profile_img || null,
         allowedActions
       }
     });
@@ -96,18 +98,35 @@ const login = async (req, res) => {
 // GET /api/auth/me
 const me = async (req, res) => {
   try {
+    let latestUser = {};
+    if (req.user && req.user.id) {
+      const [dbUser] = await db.execute(
+        'SELECT id, full_name, email, emp_id, utype, owner, profile_img, status FROM users WHERE id = ? LIMIT 1',
+        [req.user.id]
+      );
+      if (dbUser && dbUser.length > 0) {
+        latestUser = dbUser[0];
+      }
+    }
+
     let allowedActions = [];
     try {
       const [actions] = await db.execute(
         "SELECT actabid FROM access_action_tab WHERE userid = ? AND status = '1'",
-        [req.user.userid || req.user.full_name]
+        [latestUser.full_name || req.user.userid || req.user.full_name]
       );
       allowedActions = actions.map(a => parseInt(a.actabid));
     } catch (e) {}
 
     return res.json({
       status: 'success',
-      user: { ...req.user, allowedActions }
+      user: {
+        ...req.user,
+        ...latestUser,
+        userid: latestUser.full_name || req.user.userid,
+        profile_img: latestUser.profile_img || req.user.profile_img || null,
+        allowedActions
+      }
     });
   } catch (err) {
     return res.status(500).json({ status: 'error', message: 'Server error.' });

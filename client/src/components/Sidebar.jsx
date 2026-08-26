@@ -177,8 +177,17 @@ export default function Sidebar() {
       {/* User Footer */}
       <div className="sidebar-footer">
         <div className="sidebar-user">
-          <div className="user-avatar">
-            {user?.userid?.charAt(0)?.toUpperCase() || 'U'}
+          <div className="user-avatar" style={{ overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            {user?.profile_img ? (
+              <img
+                src={user.profile_img}
+                alt=""
+                style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }}
+                onError={(e) => { e.target.style.display = 'none'; }}
+              />
+            ) : (
+              (user?.userid || user?.full_name || 'U').charAt(0).toUpperCase()
+            )}
           </div>
           <div className="user-info">
             <div className="user-name">{user?.userid || 'User'}</div>

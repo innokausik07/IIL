@@ -25,6 +25,7 @@ import SubFunctionMaster from './pages/SubFunctionMaster';
 // Admin / Core Masters
 import UserMaster from './pages/UserMaster';
 import UserForm from './pages/UserForm';
+import UserRights from './pages/UserRights';
 import LocationMaster from './pages/LocationMaster';
 import LocationForm from './pages/LocationForm';
 import StateMaster from './pages/StateMaster';
@@ -110,6 +111,7 @@ function AppRoutes() {
       <Route path="/admin/user-master"            element={<ProtectedRoute><UserMaster /></ProtectedRoute>} />
       <Route path="/admin/user-master/add"        element={<ProtectedRoute><UserForm /></ProtectedRoute>} />
       <Route path="/admin/user-master/edit/:id"   element={<ProtectedRoute><UserForm /></ProtectedRoute>} />
+      <Route path="/admin/user-master/rights/:id" element={<ProtectedRoute><UserRights /></ProtectedRoute>} />
       <Route path="/admin/create-user"            element={<ProtectedRoute><UserForm /></ProtectedRoute>} />
       <Route path="/admin/location-master"        element={<ProtectedRoute><LocationMaster /></ProtectedRoute>} />
       <Route path="/admin/location-master/add"    element={<ProtectedRoute><LocationForm /></ProtectedRoute>} />

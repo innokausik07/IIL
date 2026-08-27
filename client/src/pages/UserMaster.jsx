@@ -333,7 +333,7 @@ export default function UserMaster() {
                             <Pencil size={12} />
                           </button>
                           <button
-                            onClick={() => navigate(`/admin/user-master/edit/${u.id}?rights=1`)}
+                            onClick={() => navigate(`/admin/user-master/rights/${u.id}`)}
                             className="btn btn-sm"
                             style={{ background: '#1e293b', color: '#fff', padding: '3px 7px', marginRight: 4 }}
                             title="Update Module Rights"

@@ -440,11 +440,11 @@ export default function UserForm() {
                 {loading ? 'Saving...' : (editId ? 'Update' : 'Create User')}
               </button>
 
-              {/* Update Rights Button (Only for existing users) */}
+              {/* Update Rights Button (Devsite Dedicated Rights Page) */}
               {editId && (
                 <button
                   type="button"
-                  onClick={handleOpenRights}
+                  onClick={() => navigate(`/admin/user-master/rights/${editId}`)}
                   className="btn"
                   style={{ background: '#1e293b', color: '#fff', padding: '8px 20px', fontSize: '13px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '6px' }}
                 >

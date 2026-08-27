@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { UserPlus, Users, RefreshCw, Pencil, Ban, CheckCircle2, Search, X, Download } from 'lucide-react';
+import { UserPlus, Users, RefreshCw, Pencil, Ban, CheckCircle2, Search, X, Download, Shield } from 'lucide-react';
 
 export default function UserMaster() {
   const navigate = useNavigate();

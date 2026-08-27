@@ -224,11 +224,20 @@ const getUserRights = async (req, res) => {
     let assignedIds = [];
     try {
       const [rights] = await db.execute(
-        "SELECT function_id FROM access_function WHERE (uid = ? OR uid = ? OR uid = ?) AND status = 'Y'",
+        "SELECT function_id, sub_function_id FROM access_function WHERE (uid = ? OR uid = ? OR uid = ?) AND status = 'Y'",
         [userUid, String(user.id), user.full_name]
       );
-      assignedIds = rights.map(r => parseInt(r.function_id)).filter(Boolean);
-    } catch (e) {}
+      assignedIds = rights.map(r => parseInt(r.sub_function_id || r.function_id)).filter(Boolean);
+    } catch (e) {
+      // Fallback query if sub_function_id column is not yet present
+      try {
+        const [rightsOld] = await db.execute(
+          "SELECT function_id FROM access_function WHERE (uid = ? OR uid = ? OR uid = ?) AND status = 'Y'",
+          [userUid, String(user.id), user.full_name]
+        );
+        assignedIds = rightsOld.map(r => parseInt(r.function_id)).filter(Boolean);
+      } catch (err) {}
+    }
 
     // Fallback to user_rights table if access_function is empty
     if (assignedIds.length === 0) {
@@ -273,6 +282,22 @@ const updateUserRights = async (req, res) => {
     const user = users[0];
     const uids = Array.from(new Set([user.emp_id, String(user.id), user.full_name].filter(Boolean)));
 
+    // Auto-ensure sub_function_id column exists in access_function table
+    try {
+      await db.execute("ALTER TABLE `access_function` ADD COLUMN `sub_function_id` VARCHAR(50) NULL AFTER `function_id`");
+    } catch (e) {}
+
+    // Map sub-functions to their parent function_id
+    const subMap = {};
+    if (subFunctionIds.length > 0) {
+      const placeholders = subFunctionIds.map(() => '?').join(',');
+      const [subs] = await db.execute(
+        `SELECT id, function_id FROM sub_function_master WHERE id IN (${placeholders})`,
+        subFunctionIds
+      );
+      subs.forEach(s => { subMap[s.id] = s.function_id; });
+    }
+
     // 1. Delete existing rights from `access_function` table for all aliases of this user
     for (const u of uids) {
       try {
@@ -280,36 +305,36 @@ const updateUserRights = async (req, res) => {
       } catch (e) {}
     }
 
-    // 2. Insert into `access_function` table for user's emp_id and aliases
+    // 2. Insert into `access_function` table with both parent `function_id` and child `sub_function_id`
     for (const subId of subFunctionIds) {
+      const parentFnId = subMap[subId] || '';
       for (const u of uids) {
         try {
           await db.execute(
-            "INSERT INTO access_function (uid, function_id, status) VALUES (?, ?, 'Y')",
-            [u, String(subId)]
+            "INSERT INTO access_function (uid, function_id, sub_function_id, status) VALUES (?, ?, ?, 'Y')",
+            [u, String(parentFnId), String(subId)]
           );
-        } catch (e) {}
+        } catch (err) {
+          // Fallback if schema does not accept sub_function_id
+          try {
+            await db.execute(
+              "INSERT INTO access_function (uid, function_id, status) VALUES (?, ?, 'Y')",
+              [u, String(subId)]
+            );
+          } catch (e) {}
+        }
       }
     }
 
     // 3. Also sync into `user_rights` table
     try {
       await db.execute('DELETE FROM user_rights WHERE user_id = ?', [id]);
-      if (subFunctionIds.length > 0) {
-        const [subs] = await db.execute(
-          `SELECT id, function_id FROM sub_function_master WHERE id IN (${subFunctionIds.map(() => '?').join(',')})`,
-          subFunctionIds
+      for (const subId of subFunctionIds) {
+        const fnId = subMap[subId] || null;
+        await db.execute(
+          'INSERT INTO user_rights (user_id, sub_function_id, function_id, status) VALUES (?, ?, ?, 1)',
+          [id, subId, fnId]
         );
-        const subMap = {};
-        subs.forEach(s => { subMap[s.id] = s.function_id; });
-
-        for (const subId of subFunctionIds) {
-          const fnId = subMap[subId] || null;
-          await db.execute(
-            'INSERT INTO user_rights (user_id, sub_function_id, function_id, status) VALUES (?, ?, ?, 1)',
-            [id, subId, fnId]
-          );
-        }
       }
     } catch (e) {}
 

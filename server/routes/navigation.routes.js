@@ -79,19 +79,34 @@ router.get('/', async (req, res) => {
       const uidsToMatch = Array.from(new Set([empId, String(userId), fullName, email, username, userEmpId].filter(Boolean)));
       let assignedFunctions = [];
 
-      // 4. Query `access_function` table directly (Schema: id, uid, function_id, status='Y')
+      // 4. Query `access_function` table directly (Schema: id, uid, function_id, sub_function_id, status='Y')
       if (uidsToMatch.length > 0) {
         try {
           const placeholders = uidsToMatch.map(() => '?').join(',');
           const [accessRows] = await db.execute(
-            `SELECT function_id FROM access_function WHERE uid IN (${placeholders}) AND status = 'Y'`,
+            `SELECT function_id, sub_function_id FROM access_function WHERE uid IN (${placeholders}) AND status = 'Y'`,
             uidsToMatch
           );
           if (accessRows.length > 0) {
-            assignedFunctions = accessRows.map(r => String(r.function_id).trim()).filter(Boolean);
+            accessRows.forEach(r => {
+              if (r.sub_function_id) assignedFunctions.push(String(r.sub_function_id).trim());
+              if (r.function_id) assignedFunctions.push(String(r.function_id).trim());
+            });
           }
         } catch (e) {
-          console.error('Error querying access_function:', e.message);
+          // Fallback if sub_function_id column is not in query
+          try {
+            const placeholders = uidsToMatch.map(() => '?').join(',');
+            const [accessRows] = await db.execute(
+              `SELECT function_id FROM access_function WHERE uid IN (${placeholders}) AND status = 'Y'`,
+              uidsToMatch
+            );
+            if (accessRows.length > 0) {
+              assignedFunctions = accessRows.map(r => String(r.function_id).trim()).filter(Boolean);
+            }
+          } catch (err) {
+            console.error('Error querying access_function:', err.message);
+          }
         }
       }
 
@@ -99,17 +114,20 @@ router.get('/', async (req, res) => {
       if (assignedFunctions.length === 0 && userId) {
         try {
           const [rights] = await db.execute(
-            'SELECT sub_function_id FROM user_rights WHERE user_id = ? AND status = 1',
+            'SELECT sub_function_id, function_id FROM user_rights WHERE user_id = ? AND status = 1',
             [userId]
           );
           if (rights.length > 0) {
-            assignedFunctions = rights.map(r => String(r.sub_function_id)).filter(Boolean);
+            rights.forEach(r => {
+              if (r.sub_function_id) assignedFunctions.push(String(r.sub_function_id).trim());
+              if (r.function_id) assignedFunctions.push(String(r.function_id).trim());
+            });
           }
         } catch (e) {}
       }
 
       // Populate userAllowedSet directly from access_function table
-      userAllowedSet = new Set(assignedFunctions);
+      userAllowedSet = new Set(assignedFunctions.filter(Boolean));
     }
 
     // 6. Group sub-functions under their parent function with strict filtering

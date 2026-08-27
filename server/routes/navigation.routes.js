@@ -1,48 +1,55 @@
 /**
  * Dynamic Navigation Menu API
- * Strictly driven by MySQL `access_function` table.
- * - Safely queries `access_function` without SQL column exceptions.
- * - Flexibly matches logged-in user against granted rights.
+ * With debug endpoint to diagnose live production issues.
  */
 const express = require('express');
 const router  = express.Router();
 const jwt     = require('jsonwebtoken');
 const db      = require('../config/db');
 
+// Helper: decode token safely
+function decodeToken(authHeader) {
+  if (!authHeader || !authHeader.startsWith('Bearer ')) return null;
+  const rawToken = authHeader.split(' ')[1];
+  if (!rawToken || rawToken === 'null' || rawToken === 'undefined') return null;
+  try {
+    return jwt.verify(rawToken, process.env.JWT_SECRET || 'innovatiview_secret_key');
+  } catch (err) {
+    try { return jwt.decode(rawToken); } catch (e) { return null; }
+  }
+}
+
+// GET /api/navigation/debug - DIAGNOSTIC: shows raw token data and access_function rows
+router.get('/debug', async (req, res) => {
+  try {
+    const decoded = decodeToken(req.headers.authorization);
+    const [accessAll] = await db.execute('SELECT * FROM access_function LIMIT 20');
+    const [usersAll] = await db.execute('SELECT id, emp_id, full_name, email, utype FROM users');
+    const [subFnsAll] = await db.execute('SELECT id, function_id, sub_name FROM sub_function_master LIMIT 10');
+    const [fnsAll] = await db.execute('SELECT id, function_id, function_name FROM function_master LIMIT 10');
+    res.json({
+      decoded_token: decoded,
+      users_in_db: usersAll,
+      access_function_rows: accessAll,
+      sample_sub_functions: subFnsAll,
+      sample_functions: fnsAll
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // GET /api/navigation - Dynamic tree of active functions and sub-functions
 router.get('/', async (req, res) => {
   try {
-    let userId = null;
-    let userType = null;
-    let username = null;
-    let userEmpId = null;
+    const decoded = decodeToken(req.headers.authorization);
 
-    // 1. Decode token from Authorization header
-    const authHeader = req.headers.authorization;
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-      const rawToken = authHeader.split(' ')[1];
-      if (rawToken && rawToken !== 'null' && rawToken !== 'undefined') {
-        try {
-          const decoded = jwt.verify(rawToken, process.env.JWT_SECRET || 'innovatiview_secret_key');
-          userId = decoded.id;
-          userType = String(decoded.utype || '');
-          username = decoded.full_name || decoded.userid;
-          userEmpId = decoded.emp_id;
-        } catch (err) {
-          try {
-            const fallback = jwt.decode(rawToken);
-            if (fallback) {
-              userId = fallback.id;
-              userType = String(fallback.utype || '');
-              username = fallback.full_name || fallback.userid;
-              userEmpId = fallback.emp_id;
-            }
-          } catch (e) {}
-        }
-      }
-    }
+    let userId = decoded?.id || null;
+    let userType = String(decoded?.utype || '');
+    let username = decoded?.full_name || decoded?.userid || null;
+    let userEmpId = decoded?.emp_id || null;
 
-    // 2. Fetch all functions and sub-functions from database
+    // Fetch all functions and sub-functions from database
     const [functions] = await db.execute(
       "SELECT * FROM function_master ORDER BY tab ASC, id ASC"
     );
@@ -50,95 +57,72 @@ router.get('/', async (req, res) => {
       "SELECT * FROM sub_function_master ORDER BY sub_seq ASC, id ASC"
     );
 
-    // 3. Collect all candidate emp_id / user identifiers for the logged-in user
-    let candidateIds = [];
+    // Fetch ALL access_function rows and ALL users rows
+    const [allAccessRows] = await db.execute('SELECT * FROM access_function');
+    const [allUsers] = await db.execute('SELECT id, emp_id, full_name, email FROM users');
 
-    try {
-      const [allUsers] = await db.execute('SELECT id, emp_id, full_name, email FROM users');
-      allUsers.forEach(u => {
-        const isMatch = (userId && String(u.id) === String(userId)) ||
-                        (userEmpId && String(u.emp_id).trim() === String(userEmpId).trim()) ||
-                        (username && String(u.full_name || '').toLowerCase().includes(String(username || '').toLowerCase())) ||
-                        (username && String(u.email || '').toLowerCase() === String(username || '').toLowerCase());
-        if (isMatch) {
-          if (u.emp_id) candidateIds.push(String(u.emp_id).trim());
-          if (u.id) candidateIds.push(String(u.id).trim());
-          if (u.full_name) candidateIds.push(String(u.full_name).trim());
-        }
-      });
-    } catch (e) {}
+    // Collect candidate identifiers for this logged-in user
+    let candidateIds = new Set();
 
-    if (userEmpId) candidateIds.push(String(userEmpId).trim());
-    if (userId) candidateIds.push(String(userId).trim());
-    if (username) candidateIds.push(String(username).trim());
+    // Add from token directly
+    if (userEmpId) candidateIds.add(String(userEmpId).trim());
+    if (userId) candidateIds.add(String(userId).trim());
+    if (username) candidateIds.add(String(username).trim());
 
-    // Include Kausik's standard employee IDs
-    if (String(username || '').toLowerCase().includes('kausik') || String(userId) === '4' || String(userId) === '1' || String(userId) === '8') {
-      candidateIds.push('453636', '40007640');
-    }
-
-    candidateIds = Array.from(new Set(candidateIds.filter(Boolean)));
-    const candidateLower = candidateIds.map(c => c.toLowerCase());
-
-    // 4. Fetch all records from `access_function` safely
-    let userAllowedSet = new Set();
-    let assignedFunctions = [];
-
-    try {
-      const [allAccessRows] = await db.execute(
-        "SELECT * FROM access_function WHERE status IN ('Y', '1', 'Active', 'A') OR status IS NULL"
+    // Match against users table
+    allUsers.forEach(u => {
+      const matchById = userId && String(u.id) === String(userId);
+      const matchByEmpId = userEmpId && String(u.emp_id || '').trim() === String(userEmpId).trim();
+      const matchByName = username && (
+        String(u.full_name || '').toLowerCase() === String(username).toLowerCase() ||
+        String(u.email || '').toLowerCase() === String(username).toLowerCase()
       );
+      if (matchById || matchByEmpId || matchByName) {
+        if (u.emp_id) candidateIds.add(String(u.emp_id).trim());
+        if (u.id) candidateIds.add(String(u.id).trim());
+        if (u.full_name) candidateIds.add(String(u.full_name).trim());
+      }
+    });
 
-      // Filter access rows for this user
-      const userRows = allAccessRows.filter(r => {
-        const rEmp = String(r.emp_id || r.uid || '').trim().toLowerCase();
-        return candidateLower.includes(rEmp);
-      });
+    const candidateArr = Array.from(candidateIds);
+    const candidateLower = candidateArr.map(c => c.toLowerCase());
 
-      userRows.forEach(r => {
-        if (r.sub_function_id) assignedFunctions.push(String(r.sub_function_id).trim());
-        if (r.function_id) assignedFunctions.push(String(r.function_id).trim());
-      });
-    } catch (errAccess) {
-      console.error('Error fetching access_function:', errAccess.message);
-    }
+    // Filter access rows belonging to this user (case-insensitive emp_id match)
+    const userRows = allAccessRows.filter(r => {
+      const rowEmpId = String(r.emp_id || r.uid || '').trim().toLowerCase();
+      return rowEmpId && candidateLower.includes(rowEmpId);
+    });
 
-    // 5. Fallback to `user_rights` table if access_function has 0 matches
-    if (assignedFunctions.length === 0 && userId) {
-      try {
-        const [rights] = await db.execute(
-          'SELECT sub_function_id, function_id FROM user_rights WHERE user_id = ? AND status = 1',
-          [userId]
-        );
-        if (rights.length > 0) {
-          rights.forEach(r => {
-            if (r.sub_function_id) assignedFunctions.push(String(r.sub_function_id).trim());
-            if (r.function_id) assignedFunctions.push(String(r.function_id).trim());
-          });
-        }
-      } catch (e) {}
-    }
+    // Build allowed set from user's access rows
+    const allowedSubIds = new Set();
+    const allowedFnIds = new Set();
+    userRows.forEach(r => {
+      if (r.sub_function_id) allowedSubIds.add(String(r.sub_function_id).trim());
+      if (r.function_id) allowedFnIds.add(String(r.function_id).trim().toUpperCase());
+    });
 
-    userAllowedSet = new Set(assignedFunctions.filter(Boolean));
-
-    // 6. Build dynamic navigation menu tree strictly from userAllowedSet
+    // Build navigation menu tree strictly from allowedSubIds / allowedFnIds
     const menuTree = functions.map(fn => {
-      const fnIdStr = String(fn.function_id || fn.id || '').trim().toUpperCase();
+      const fnCode = String(fn.function_id || '').trim().toUpperCase();
+      const fnIdStr = String(fn.id).trim();
 
       const children = subFunctions.filter(sub => {
-        const subFnStr = String(sub.function_id || '').trim().toUpperCase();
-        const isChild = !subFnStr || subFnStr === fnIdStr || subFnStr === String(fn.id).trim();
+        const subFnCode = String(sub.function_id || '').trim().toUpperCase();
+        const subIdStr = String(sub.id).trim();
+
+        // Must belong to this parent function
+        const isChild = !subFnCode || subFnCode === fnCode || subFnCode === fnIdStr;
         if (!isChild) return false;
 
-        // If no access rights exist, hide sub-function
-        if (userAllowedSet.size === 0) return false;
+        // No rights granted? Hide everything
+        if (allowedSubIds.size === 0 && allowedFnIds.size === 0) return false;
 
-        // Sub-function must be explicitly in user's access rights
+        // Match by sub_function_id or function_id
         return (
-          userAllowedSet.has(String(sub.id).trim()) ||
-          userAllowedSet.has(String(sub.function_id).trim()) ||
-          userAllowedSet.has(fnIdStr) ||
-          userAllowedSet.has(String(fn.id).trim())
+          allowedSubIds.has(subIdStr) ||
+          allowedFnIds.has(subFnCode) ||
+          allowedFnIds.has(fnCode) ||
+          allowedFnIds.has(fnIdStr)
         );
       });
 
@@ -160,14 +144,15 @@ router.get('/', async (req, res) => {
           utype: sub.utype
         }))
       };
-    }).filter(fn => fn.sub_functions.length > 0); // Only show functions that have granted sub-modules
+    }).filter(fn => fn.sub_functions.length > 0);
 
     res.json({
       status: 'success',
       data: menuTree,
       totalAccessibleModules: menuTree.length,
-      matchedCandidateIds: candidateIds,
-      grantedCount: userAllowedSet.size
+      grantedCount: allowedSubIds.size + allowedFnIds.size,
+      matchedCandidateIds: candidateArr,
+      userRowsFound: userRows.length
     });
   } catch (err) {
     console.error('Navigation Route Error:', err);

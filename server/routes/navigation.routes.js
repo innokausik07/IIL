@@ -1,7 +1,7 @@
 /**
  * Dynamic Navigation Menu API
  * Fetches active functions and sub-functions from database
- * Filters navigation tree according to user access rights
+ * Strictly filters navigation tree according to user access rights in user_rights table
  */
 const express = require('express');
 const router  = express.Router();
@@ -13,6 +13,7 @@ router.get('/', async (req, res) => {
   try {
     let userId = null;
     let userType = null;
+    let username = null;
 
     // Decode token if provided
     const authHeader = req.headers.authorization;
@@ -22,6 +23,7 @@ router.get('/', async (req, res) => {
         const decoded = jwt.verify(token, process.env.JWT_SECRET || 'innovatiview_secret_key');
         userId = decoded.id;
         userType = String(decoded.utype || '');
+        username = decoded.full_name || decoded.userid;
       } catch (e) {}
     }
 
@@ -32,16 +34,39 @@ router.get('/', async (req, res) => {
       "SELECT * FROM sub_function_master WHERE status = 'Y' ORDER BY sub_seq ASC, id ASC"
     );
 
-    // Check if this specific user has custom access rights configured
+    // Determine allowed sub-functions for the current user
     let userAllowedSubIds = null;
-    if (userId && userType !== '1') {
-      const [userRights] = await db.execute(
-        'SELECT sub_function_id FROM user_rights WHERE user_id = ? AND status = 1',
-        [userId]
-      );
-      if (userRights.length > 0) {
-        userAllowedSubIds = new Set(userRights.map(r => r.sub_function_id));
+
+    if (userId) {
+      // 1. Check `user_rights` table
+      let assigned = [];
+      try {
+        const [rights] = await db.execute(
+          'SELECT sub_function_id FROM user_rights WHERE user_id = ? AND status = 1',
+          [userId]
+        );
+        assigned = rights.map(r => r.sub_function_id);
+      } catch (e) {}
+
+      // 2. Also check legacy `access_subfunction_tab` table if present
+      if (assigned.length === 0 && username) {
+        try {
+          const [legacyRights] = await db.execute(
+            "SELECT subfunid FROM access_subfunction_tab WHERE userid = ? AND status = '1'",
+            [username]
+          );
+          assigned = legacyRights.map(r => parseInt(r.subfunid)).filter(Boolean);
+        } catch (e) {}
       }
+
+      if (assigned.length > 0) {
+        // User has specific rights defined in database -> Strictly show ONLY those sub-modules
+        userAllowedSubIds = new Set(assigned);
+      } else if (userType !== '1') {
+        // Non-admin user with no rights configured -> Restricted access (empty until admin assigns rights)
+        userAllowedSubIds = new Set();
+      }
+      // If userType === '1' (Super Admin) and no custom restriction, userAllowedSubIds remains null (all allowed)
     }
 
     // Group sub-functions under their parent function
@@ -49,7 +74,7 @@ router.get('/', async (req, res) => {
       let children = subFunctions.filter(sub => sub.function_id === fn.function_id);
 
       // If user has specific rights configured, filter sub-functions
-      if (userAllowedSubIds) {
+      if (userAllowedSubIds !== null) {
         children = children.filter(sub => userAllowedSubIds.has(sub.id));
       }
 
@@ -73,7 +98,7 @@ router.get('/', async (req, res) => {
       };
     }).filter(fn => fn.sub_functions.length > 0); // Only show functions that have accessible sub-modules
 
-    res.json({ status: 'success', data: menuTree });
+    res.json({ status: 'success', data: menuTree, totalAccessibleModules: menuTree.length });
   } catch (err) {
     res.status(500).json({ status: 'error', message: err.sqlMessage || err.message });
   }

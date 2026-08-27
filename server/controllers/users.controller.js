@@ -280,22 +280,16 @@ const updateUserRights = async (req, res) => {
       } catch (e) {}
     }
 
-    // 2. Insert into `access_function` table for user's emp_id (or primary uid)
-    const primaryUid = user.emp_id || String(user.id) || user.full_name;
+    // 2. Insert into `access_function` table for user's emp_id and aliases
     for (const subId of subFunctionIds) {
-      try {
-        await db.execute(
-          "INSERT INTO access_function (uid, function_id, status) VALUES (?, ?, 'Y')",
-          [primaryUid, String(subId)]
-        );
-        // Also insert for emp_id if primaryUid was not emp_id
-        if (user.emp_id && user.emp_id !== primaryUid) {
+      for (const u of uids) {
+        try {
           await db.execute(
             "INSERT INTO access_function (uid, function_id, status) VALUES (?, ?, 'Y')",
-            [user.emp_id, String(subId)]
+            [u, String(subId)]
           );
-        }
-      } catch (e) {}
+        } catch (e) {}
+      }
     }
 
     // 3. Also sync into `user_rights` table

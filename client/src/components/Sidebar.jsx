@@ -83,7 +83,7 @@ export default function Sidebar() {
     fetchMenu();
     window.addEventListener('rights-updated', fetchMenu);
     return () => window.removeEventListener('rights-updated', fetchMenu);
-  }, []);
+  }, [location.pathname]);
 
   const toggleSection = (fnId) => {
     setOpenSections(prev => ({ ...prev, [fnId]: !prev[fnId] }));

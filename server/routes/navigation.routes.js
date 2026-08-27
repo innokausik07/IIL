@@ -80,12 +80,12 @@ router.get('/', async (req, res) => {
       const uidsToMatch = Array.from(new Set([empId, String(userId), fullName, email, username, userEmpId].filter(Boolean)));
       let assignedFunctions = [];
 
-      // 4. Query `access_function` table (uid = emp_id, function_id, sub_function_id, status='Y')
+      // 4. Query `access_function` table (Schema: id, emp_id, function_id, sub_function_id, status='Y')
       if (uidsToMatch.length > 0) {
+        const placeholders = uidsToMatch.map(() => '?').join(',');
         try {
-          const placeholders = uidsToMatch.map(() => '?').join(',');
           const [accessRows] = await db.execute(
-            `SELECT function_id, sub_function_id FROM access_function WHERE (uid IN (${placeholders}) OR TRIM(uid) IN (${placeholders})) AND status IN ('Y', '1', 'Active', 'A')`,
+            `SELECT function_id, sub_function_id FROM access_function WHERE (emp_id IN (${placeholders}) OR TRIM(emp_id) IN (${placeholders})) AND status IN ('Y', '1', 'Active', 'A')`,
             [...uidsToMatch, ...uidsToMatch]
           );
           if (accessRows.length > 0) {
@@ -95,18 +95,28 @@ router.get('/', async (req, res) => {
             });
           }
         } catch (e) {
-          // Fallback query if sub_function_id column is not in query
+          // Fallback if table still uses column name `uid`
           try {
-            const placeholders = uidsToMatch.map(() => '?').join(',');
             const [accessRows] = await db.execute(
-              `SELECT function_id FROM access_function WHERE (uid IN (${placeholders}) OR TRIM(uid) IN (${placeholders})) AND status IN ('Y', '1', 'Active', 'A')`,
+              `SELECT function_id, sub_function_id FROM access_function WHERE (uid IN (${placeholders}) OR TRIM(uid) IN (${placeholders})) AND status IN ('Y', '1', 'Active', 'A')`,
               [...uidsToMatch, ...uidsToMatch]
             );
             if (accessRows.length > 0) {
-              assignedFunctions = accessRows.map(r => String(r.function_id).trim()).filter(Boolean);
+              accessRows.forEach(r => {
+                if (r.sub_function_id) assignedFunctions.push(String(r.sub_function_id).trim());
+                if (r.function_id) assignedFunctions.push(String(r.function_id).trim());
+              });
             }
           } catch (err) {
-            console.error('Error querying access_function:', err.message);
+            try {
+              const [accessRows] = await db.execute(
+                `SELECT function_id FROM access_function WHERE (uid IN (${placeholders}) OR emp_id IN (${placeholders})) AND status IN ('Y', '1', 'Active', 'A')`,
+                [...uidsToMatch, ...uidsToMatch]
+              );
+              if (accessRows.length > 0) {
+                assignedFunctions = accessRows.map(r => String(r.function_id).trim()).filter(Boolean);
+              }
+            } catch (err2) {}
           }
         }
       }

@@ -220,22 +220,21 @@ const getUserRights = async (req, res) => {
       "SELECT id, function_id, sub_name, sub_seq, file_name, tab, utype FROM sub_function_master WHERE status = 'Y' ORDER BY sub_seq ASC, id ASC"
     );
 
-    // Fetch currently granted rights from access_function table
+    // Fetch currently granted rights from access_function table (Support both emp_id and uid column)
     let assignedIds = [];
     try {
       const [rights] = await db.execute(
-        "SELECT function_id, sub_function_id FROM access_function WHERE (uid = ? OR uid = ? OR uid = ?) AND status = 'Y'",
+        "SELECT function_id, sub_function_id FROM access_function WHERE (emp_id = ? OR emp_id = ? OR emp_id = ?) AND status = 'Y'",
         [userUid, String(user.id), user.full_name]
       );
       assignedIds = rights.map(r => parseInt(r.sub_function_id || r.function_id)).filter(Boolean);
     } catch (e) {
-      // Fallback query if sub_function_id column is not yet present
       try {
         const [rightsOld] = await db.execute(
-          "SELECT function_id FROM access_function WHERE (uid = ? OR uid = ? OR uid = ?) AND status = 'Y'",
+          "SELECT function_id, sub_function_id FROM access_function WHERE (uid = ? OR uid = ? OR uid = ?) AND status = 'Y'",
           [userUid, String(user.id), user.full_name]
         );
-        assignedIds = rightsOld.map(r => parseInt(r.function_id)).filter(Boolean);
+        assignedIds = rightsOld.map(r => parseInt(r.sub_function_id || r.function_id)).filter(Boolean);
       } catch (err) {}
     }
 
@@ -282,7 +281,10 @@ const updateUserRights = async (req, res) => {
     const user = users[0];
     const uids = Array.from(new Set([user.emp_id, String(user.id), user.full_name].filter(Boolean)));
 
-    // Auto-ensure sub_function_id column exists in access_function table
+    // Auto-rename uid to emp_id and add sub_function_id if needed
+    try {
+      await db.execute("ALTER TABLE `access_function` CHANGE COLUMN `uid` `emp_id` VARCHAR(100) NULL");
+    } catch (e) {}
     try {
       await db.execute("ALTER TABLE `access_function` ADD COLUMN `sub_function_id` VARCHAR(50) NULL AFTER `function_id`");
     } catch (e) {}
@@ -298,30 +300,40 @@ const updateUserRights = async (req, res) => {
       subs.forEach(s => { subMap[s.id] = s.function_id; });
     }
 
-    // 1. Delete existing rights from `access_function` table for all aliases of this user
+    // 1. Delete existing rights from `access_function` table
     for (const u of uids) {
       try {
-        await db.execute('DELETE FROM access_function WHERE uid = ?', [u]);
-      } catch (e) {}
+        await db.execute('DELETE FROM access_function WHERE emp_id = ?', [u]);
+      } catch (e) {
+        try {
+          await db.execute('DELETE FROM access_function WHERE uid = ?', [u]);
+        } catch (err) {}
+      }
     }
 
-    // 2. Insert into `access_function` table with both parent `function_id` and child `sub_function_id`
+    // 2. Insert into `access_function` table (emp_id, function_id, sub_function_id, status='Y')
     for (const subId of subFunctionIds) {
       const parentFnId = subMap[subId] || '';
       for (const u of uids) {
         try {
           await db.execute(
-            "INSERT INTO access_function (uid, function_id, sub_function_id, status) VALUES (?, ?, ?, 'Y')",
+            "INSERT INTO access_function (emp_id, function_id, sub_function_id, status) VALUES (?, ?, ?, 'Y')",
             [u, String(parentFnId), String(subId)]
           );
         } catch (err) {
-          // Fallback if schema does not accept sub_function_id
           try {
             await db.execute(
-              "INSERT INTO access_function (uid, function_id, status) VALUES (?, ?, 'Y')",
-              [u, String(subId)]
+              "INSERT INTO access_function (uid, function_id, sub_function_id, status) VALUES (?, ?, ?, 'Y')",
+              [u, String(parentFnId), String(subId)]
             );
-          } catch (e) {}
+          } catch (e) {
+            try {
+              await db.execute(
+                "INSERT INTO access_function (uid, function_id, status) VALUES (?, ?, 'Y')",
+                [u, String(subId)]
+              );
+            } catch (e2) {}
+          }
         }
       }
     }

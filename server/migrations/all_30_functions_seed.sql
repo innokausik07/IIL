@@ -84,7 +84,7 @@ INSERT INTO `sub_function_master` (`id`, `function_id`, `sub_name`, `sub_seq`, `
 (25, 'FN15', 'Price Master',             5, '/products/price-master',       'Inventory', 'fa-dollar',       'Y', '2'),
 
 -- Audits & Sheets (FN18)
-(26, 'FN18', 'CCTV Audit Data',          1, '/',                            'Audit',     'fa-table',        'Y', '2'),
+(26, 'FN18', 'CCTV Audit Data',          1, '/audit/cctv-audit',            'Audit',     'fa-table',        'Y', '2'),
 (27, 'FN18', 'Moved Data Audit',         2, '/moved-sheet',                 'Audit',     'fa-arrow-right',  'Y', '2'),
 (28, 'FN18', 'Cross Audit',              3, '/cross-audit',                 'Audit',     'fa-sliders',      'Y', '2'),
 (29, 'FN18', 'Store Stock Sheet',        4, '/store-stock',                 'Audit',     'fa-database',     'Y', '2'),

@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import Layout from './components/Layout';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
+import Home from './pages/Home';
 import GoogleSheetList from './pages/GoogleSheetList';
 import MovedSheetList from './pages/MovedSheetList';
 import CrossAuditList from './pages/CrossAuditList';
@@ -66,11 +67,16 @@ function AppRoutes() {
       <Route path="/login" element={user ? <Navigate to="/" replace /> : <Login />} />
       <Route path="/signup" element={user ? <Navigate to="/" replace /> : <Signup />} />
       
+      {/* Enterprise Home / Dashboard */}
+      <Route path="/" element={<ProtectedRoute><Home /></ProtectedRoute>} />
+
       {/* Sheets & Operations */}
-      <Route path="/" element={<ProtectedRoute><GoogleSheetList /></ProtectedRoute>} />
-      <Route path="/moved-sheet" element={<ProtectedRoute><MovedSheetList /></ProtectedRoute>} />
-      <Route path="/cross-audit" element={<ProtectedRoute><CrossAuditList /></ProtectedRoute>} />
-      <Route path="/store-stock" element={<ProtectedRoute><StoreStockList /></ProtectedRoute>} />
+      <Route path="/audit/cctv-audit" element={<ProtectedRoute><GoogleSheetList /></ProtectedRoute>} />
+      <Route path="/cctv-audit"       element={<ProtectedRoute><GoogleSheetList /></ProtectedRoute>} />
+      <Route path="/google-sheet"     element={<ProtectedRoute><GoogleSheetList /></ProtectedRoute>} />
+      <Route path="/moved-sheet"      element={<ProtectedRoute><MovedSheetList /></ProtectedRoute>} />
+      <Route path="/cross-audit"      element={<ProtectedRoute><CrossAuditList /></ProtectedRoute>} />
+      <Route path="/store-stock"      element={<ProtectedRoute><StoreStockList /></ProtectedRoute>} />
 
       {/* Logistics & Shipping */}
       <Route path="/logistics/calculator"        element={<ProtectedRoute><LogisticsCalculator /></ProtectedRoute>} />

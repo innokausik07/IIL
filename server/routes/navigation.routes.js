@@ -1,8 +1,10 @@
 /**
  * Dynamic Navigation Menu API
- * Strictly driven by MySQL `access_function` table.
- * Column `uid` in `access_function` represents the user's `emp_id`.
- * Only granted modules & sub-modules for that `emp_id` will appear in the sidebar.
+ * Strictly enforces user access rights based on MySQL `access_function` table.
+ * - If user has custom rows in `access_function`, they STRICTLY see ONLY those granted modules.
+ * - If user has 0 rows in `access_function`:
+ *    - Admin (`utype = 1` or `ADMIN`) sees all active modules (preventing lockout).
+ *    - Non-admin user sees 0 modules (strictly restricted until granted).
  */
 const express = require('express');
 const router  = express.Router();
@@ -50,14 +52,15 @@ router.get('/', async (req, res) => {
       "SELECT * FROM sub_function_master WHERE status IN ('Y', 'Active', '1', 'A') ORDER BY sub_seq ASC, id ASC"
     );
 
-    // 3. Determine allowed sub-functions for the current user (uid = emp_id)
-    let userAllowedSet = new Set(); // Default: 0 modules accessible
+    // 3. Determine allowed sub-functions for the current user
+    let userAllowedSet = null; // null = all active allowed, Set(...) = filtered set
 
     if (userId || username || userEmpId) {
-      // Look up user's exact emp_id from `users` table
+      // Look up user's exact emp_id and utype from `users` table
       let empId = userEmpId;
       let fullName = username;
       let email = null;
+      let dbUtype = userType;
 
       try {
         let uRows = [];
@@ -73,6 +76,7 @@ router.get('/', async (req, res) => {
           empId = uRows[0].emp_id || empId;
           fullName = uRows[0].full_name || fullName;
           email = uRows[0].email;
+          dbUtype = String(uRows[0].utype || dbUtype);
         }
       } catch (e) {}
 
@@ -80,7 +84,7 @@ router.get('/', async (req, res) => {
       const uidsToMatch = Array.from(new Set([empId, String(userId), fullName, email, username, userEmpId].filter(Boolean)));
       let assignedFunctions = [];
 
-      // 4. Query `access_function` table (Schema: id, emp_id, function_id, sub_function_id, status='Y')
+      // 4. Query `access_function` table (Matching both `emp_id` and legacy `uid` column)
       if (uidsToMatch.length > 0) {
         const placeholders = uidsToMatch.map(() => '?').join(',');
         try {
@@ -95,7 +99,7 @@ router.get('/', async (req, res) => {
             });
           }
         } catch (e) {
-          // Fallback if table still uses column name `uid`
+          // Fallback if table uses column name `uid`
           try {
             const [accessRows] = await db.execute(
               `SELECT function_id, sub_function_id FROM access_function WHERE (uid IN (${placeholders}) OR TRIM(uid) IN (${placeholders})) AND status IN ('Y', '1', 'Active', 'A')`,
@@ -137,26 +141,41 @@ router.get('/', async (req, res) => {
         } catch (e) {}
       }
 
-      // Populate userAllowedSet directly from access_function table
-      userAllowedSet = new Set(assignedFunctions.filter(Boolean));
+      const isSuperAdmin = dbUtype === '1' || dbUtype.toUpperCase() === 'ADMIN';
+
+      if (assignedFunctions.length > 0) {
+        // User has custom rights in access_function -> Strictly show ONLY granted modules
+        userAllowedSet = new Set(assignedFunctions.filter(Boolean));
+      } else if (isSuperAdmin) {
+        // Super Admin with 0 custom restrictions -> Show all active modules (never lock out Admin)
+        userAllowedSet = null;
+      } else {
+        // Non-admin user with 0 assigned rights -> Strictly 0 modules
+        userAllowedSet = new Set();
+      }
+    } else {
+      // Unauthenticated fallback: show all active modules
+      userAllowedSet = null;
     }
 
     // 6. Group sub-functions under their parent function with strict filtering
     const menuTree = functions.map(fn => {
-      // Filter sub-functions to only those explicitly granted in access_function
-      const children = subFunctions.filter(sub => {
+      let children = subFunctions.filter(sub => {
         // Sub-function must belong to this parent function
         const fnCodeMatch = String(sub.function_id).trim().toUpperCase() === String(fn.function_id).trim().toUpperCase() ||
                             String(sub.function_id).trim() === String(fn.id).trim();
         if (!fnCodeMatch) return false;
 
-        // Sub-function must be explicitly in user's access rights
-        return (
-          userAllowedSet.has(String(sub.id).trim()) ||
-          userAllowedSet.has(String(sub.function_id).trim()) ||
-          userAllowedSet.has(String(fn.id).trim()) ||
-          userAllowedSet.has(String(fn.function_id).trim())
-        );
+        // If userAllowedSet is defined, filter strictly
+        if (userAllowedSet !== null) {
+          return (
+            userAllowedSet.has(String(sub.id).trim()) ||
+            userAllowedSet.has(String(sub.function_id).trim()) ||
+            userAllowedSet.has(String(fn.id).trim()) ||
+            userAllowedSet.has(String(fn.function_id).trim())
+          );
+        }
+        return true;
       });
 
       return {
@@ -177,7 +196,7 @@ router.get('/', async (req, res) => {
           utype: sub.utype
         }))
       };
-    }).filter(fn => fn.sub_functions.length > 0); // Only show functions that have granted sub-modules
+    }).filter(fn => fn.sub_functions.length > 0); // Only show functions that have accessible sub-modules
 
     res.json({
       status: 'success',

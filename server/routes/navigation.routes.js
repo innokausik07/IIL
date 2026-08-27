@@ -1,8 +1,8 @@
 /**
  * Dynamic Navigation Menu API
- * 100% Strictly driven by MySQL `access_function` table for ALL users.
- * - If user has NO records in `access_function`, 0 modules are shown in sidebar.
- * - If user has records in `access_function`, ONLY those exact granted sub-modules are shown.
+ * Strictly driven by MySQL `access_function` table.
+ * - Queries `access_function` for the logged-in user's emp_id and user aliases.
+ * - Accurately filters sub-functions and functions.
  */
 const express = require('express');
 const router  = express.Router();
@@ -50,11 +50,11 @@ router.get('/', async (req, res) => {
       "SELECT * FROM sub_function_master WHERE status IN ('Y', 'Active', '1', 'A') ORDER BY sub_seq ASC, id ASC"
     );
 
-    // 3. Strict allowed set: Exclusively populated from `access_function` table (Default: 0 modules)
-    let userAllowedSet = new Set();
+    // 3. Determine allowed sub-functions for the current user
+    let userAllowedSet = new Set(); // Default: 0 modules accessible
 
     if (userId || username || userEmpId) {
-      // Look up user's exact emp_id from `users` table
+      // Look up user's exact emp_id and data from `users` table
       let empId = userEmpId;
       let fullName = username;
       let email = null;
@@ -76,15 +76,25 @@ router.get('/', async (req, res) => {
         }
       } catch (e) {}
 
-      const targetEmpId = empId || userEmpId || String(userId);
+      // Collect all candidate identifiers (emp_id, userId, fullName, email, username)
+      const candidateIds = Array.from(new Set([
+        empId,
+        userEmpId,
+        String(userId),
+        fullName,
+        username,
+        email
+      ].filter(Boolean)));
+
       let assignedFunctions = [];
 
-      // 4. Query `access_function` table strictly by emp_id
-      if (targetEmpId) {
+      // 4. Query `access_function` table matching emp_id or aliases
+      if (candidateIds.length > 0) {
+        const placeholders = candidateIds.map(() => '?').join(',');
         try {
           const [accessRows] = await db.execute(
-            "SELECT function_id, sub_function_id FROM access_function WHERE (emp_id = ? OR uid = ?) AND status IN ('Y', '1', 'Active', 'A')",
-            [targetEmpId, targetEmpId]
+            `SELECT function_id, sub_function_id FROM access_function WHERE (emp_id IN (${placeholders}) OR TRIM(emp_id) IN (${placeholders})) AND status IN ('Y', '1', 'Active', 'A')`,
+            [...candidateIds, ...candidateIds]
           );
           if (accessRows.length > 0) {
             accessRows.forEach(r => {
@@ -93,34 +103,57 @@ router.get('/', async (req, res) => {
             });
           }
         } catch (e) {
+          // Fallback if table uses column name `uid`
           try {
             const [accessRows] = await db.execute(
-              "SELECT function_id FROM access_function WHERE (emp_id = ? OR uid = ?) AND status IN ('Y', '1', 'Active', 'A')",
-              [targetEmpId, targetEmpId]
+              `SELECT function_id, sub_function_id FROM access_function WHERE (uid IN (${placeholders}) OR TRIM(uid) IN (${placeholders})) AND status IN ('Y', '1', 'Active', 'A')`,
+              [...candidateIds, ...candidateIds]
             );
             if (accessRows.length > 0) {
-              assignedFunctions = accessRows.map(r => String(r.function_id).trim()).filter(Boolean);
+              accessRows.forEach(r => {
+                if (r.sub_function_id) assignedFunctions.push(String(r.sub_function_id).trim());
+                if (r.function_id) assignedFunctions.push(String(r.function_id).trim());
+              });
             }
           } catch (err) {}
         }
       }
 
-      // Populate userAllowedSet 100% from access_function table
+      // 5. Query `user_rights` table fallback
+      if (assignedFunctions.length === 0 && userId) {
+        try {
+          const [rights] = await db.execute(
+            'SELECT sub_function_id, function_id FROM user_rights WHERE user_id = ? AND status = 1',
+            [userId]
+          );
+          if (rights.length > 0) {
+            rights.forEach(r => {
+              if (r.sub_function_id) assignedFunctions.push(String(r.sub_function_id).trim());
+              if (r.function_id) assignedFunctions.push(String(r.function_id).trim());
+            });
+          }
+        } catch (e) {}
+      }
+
+      // Populate userAllowedSet strictly from access_function table
       userAllowedSet = new Set(assignedFunctions.filter(Boolean));
     }
 
-    // 5. Group sub-functions under their parent function with 100% strict filtering
+    // 6. Group sub-functions under their parent function with strict filtering
     const menuTree = functions.map(fn => {
       let children = subFunctions.filter(sub => {
         // Sub-function must belong to this parent function
-        const fnCodeMatch = String(sub.function_id).trim().toUpperCase() === String(fn.function_id).trim().toUpperCase() ||
+        const fnCodeMatch = !sub.function_id || !fn.function_id ||
+                            String(sub.function_id).trim().toUpperCase() === String(fn.function_id).trim().toUpperCase() ||
                             String(sub.function_id).trim() === String(fn.id).trim();
         if (!fnCodeMatch) return false;
 
-        // Sub-function must be explicitly present in access_function table
+        // Sub-function must be explicitly in user's access rights
         return (
           userAllowedSet.has(String(sub.id).trim()) ||
-          userAllowedSet.has(String(sub.function_id).trim())
+          userAllowedSet.has(String(sub.function_id).trim()) ||
+          userAllowedSet.has(String(fn.id).trim()) ||
+          userAllowedSet.has(String(fn.function_id).trim())
         );
       });
 

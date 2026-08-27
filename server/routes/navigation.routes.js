@@ -1,7 +1,7 @@
 /**
  * Dynamic Navigation Menu API
  * Fetches active functions and sub-functions from database
- * Strictly filters navigation tree according to user access rights in user_rights table
+ * Strictly filters navigation tree matching MySQL `access_function` table (uid, function_id, status='Y')
  */
 const express = require('express');
 const router  = express.Router();
@@ -14,6 +14,7 @@ router.get('/', async (req, res) => {
     let userId = null;
     let userType = null;
     let username = null;
+    let userEmpId = null;
 
     // Decode token if provided
     const authHeader = req.headers.authorization;
@@ -24,6 +25,7 @@ router.get('/', async (req, res) => {
         userId = decoded.id;
         userType = String(decoded.utype || '');
         username = decoded.full_name || decoded.userid;
+        userEmpId = decoded.emp_id;
       } catch (e) {}
     }
 
@@ -38,42 +40,59 @@ router.get('/', async (req, res) => {
     let userAllowedSubIds = null;
 
     if (userId) {
-      // 1. Check `user_rights` table
-      let assigned = [];
+      // Look up user's exact emp_id and username from DB if not in token
+      let empId = userEmpId;
+      let fullName = username;
       try {
-        const [rights] = await db.execute(
-          'SELECT sub_function_id FROM user_rights WHERE user_id = ? AND status = 1',
-          [userId]
-        );
-        assigned = rights.map(r => r.sub_function_id);
+        const [uRows] = await db.execute('SELECT emp_id, full_name, utype FROM users WHERE id = ? LIMIT 1', [userId]);
+        if (uRows.length > 0) {
+          empId = uRows[0].emp_id || empId;
+          fullName = uRows[0].full_name || fullName;
+          userType = String(uRows[0].utype || userType);
+        }
       } catch (e) {}
 
-      // 2. Also check legacy `access_subfunction_tab` table if present
-      if (assigned.length === 0 && username) {
+      let assigned = [];
+
+      // 1. Query the `access_function` table (Matching phpMyAdmin table: id, uid, function_id, status='Y')
+      try {
+        const [accessRows] = await db.execute(
+          "SELECT function_id FROM access_function WHERE (uid = ? OR uid = ? OR uid = ?) AND status = 'Y'",
+          [empId || '', String(userId), fullName || '']
+        );
+        if (accessRows.length > 0) {
+          assigned = accessRows.map(r => parseInt(r.function_id)).filter(Boolean);
+        }
+      } catch (e) {}
+
+      // 2. Query `user_rights` table fallback
+      if (assigned.length === 0) {
         try {
-          const [legacyRights] = await db.execute(
-            "SELECT subfunid FROM access_subfunction_tab WHERE userid = ? AND status = '1'",
-            [username]
+          const [rights] = await db.execute(
+            'SELECT sub_function_id FROM user_rights WHERE user_id = ? AND status = 1',
+            [userId]
           );
-          assigned = legacyRights.map(r => parseInt(r.subfunid)).filter(Boolean);
+          if (rights.length > 0) {
+            assigned = rights.map(r => r.sub_function_id);
+          }
         } catch (e) {}
       }
 
       if (assigned.length > 0) {
-        // User has specific rights defined in database -> Strictly show ONLY those sub-modules
+        // User has specific rights defined in access_function -> Strictly show ONLY those sub-modules
         userAllowedSubIds = new Set(assigned);
       } else if (userType !== '1') {
-        // Non-admin user with no rights configured -> Restricted access (empty until admin assigns rights)
+        // Non-admin user with no rights granted -> Show empty/restricted menu
         userAllowedSubIds = new Set();
       }
-      // If userType === '1' (Super Admin) and no custom restriction, userAllowedSubIds remains null (all allowed)
+      // If userType === '1' (Super Admin) and no custom restriction, userAllowedSubIds remains null (all active modules allowed)
     }
 
     // Group sub-functions under their parent function
     const menuTree = functions.map(fn => {
       let children = subFunctions.filter(sub => sub.function_id === fn.function_id);
 
-      // If user has specific rights configured, filter sub-functions
+      // If user has specific rights configured in access_function, filter sub-functions
       if (userAllowedSubIds !== null) {
         children = children.filter(sub => userAllowedSubIds.has(sub.id));
       }

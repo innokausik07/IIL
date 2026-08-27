@@ -8,7 +8,7 @@ if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }
 
-// Auto-add profile_img column to users table and create user_rights table if missing
+// Auto-create access_function and user_rights tables if missing
 (async () => {
   try {
     const [cols] = await db.execute("SHOW COLUMNS FROM users LIKE 'profile_img'");
@@ -16,6 +16,20 @@ if (!fs.existsSync(uploadDir)) {
       await db.execute("ALTER TABLE users ADD COLUMN profile_img VARCHAR(255) NULL AFTER alt_mobile");
       console.log('Added profile_img column to users table.');
     }
+  } catch (err) {}
+
+  try {
+    await db.execute(`
+      CREATE TABLE IF NOT EXISTS access_function (
+        id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        uid VARCHAR(100) NOT NULL,
+        function_id VARCHAR(50) NOT NULL,
+        status VARCHAR(10) DEFAULT 'Y',
+        INDEX idx_uid (uid),
+        INDEX idx_fn (function_id)
+      )
+    `);
+    console.log('access_function table verified/created.');
   } catch (err) {}
 
   try {
@@ -30,7 +44,6 @@ if (!fs.existsSync(uploadDir)) {
         UNIQUE KEY uniq_user_sub (user_id, sub_function_id)
       )
     `);
-    console.log('user_rights table verified/created.');
   } catch (err) {}
 })();
 
@@ -186,7 +199,7 @@ const deleteUser = async (req, res) => {
   }
 };
 
-// GET /api/users/:id/rights - Fetch user module & submodule access rights
+// GET /api/users/:id/rights - Fetch user module & submodule access rights from access_function table
 const getUserRights = async (req, res) => {
   try {
     const { id } = req.params;
@@ -197,6 +210,7 @@ const getUserRights = async (req, res) => {
       return res.status(404).json({ status: 'error', message: 'User not found' });
     }
     const user = users[0];
+    const userUid = user.emp_id || user.full_name || String(user.id);
 
     // Fetch all functions and sub-functions
     const [functions] = await db.execute(
@@ -206,12 +220,26 @@ const getUserRights = async (req, res) => {
       "SELECT id, function_id, sub_name, sub_seq, file_name, tab, utype FROM sub_function_master WHERE status = 'Y' ORDER BY sub_seq ASC, id ASC"
     );
 
-    // Fetch currently granted rights
-    const [rights] = await db.execute(
-      'SELECT sub_function_id FROM user_rights WHERE user_id = ? AND status = 1',
-      [id]
-    );
-    const assignedIds = rights.map(r => r.sub_function_id);
+    // Fetch currently granted rights from access_function table
+    let assignedIds = [];
+    try {
+      const [rights] = await db.execute(
+        "SELECT function_id FROM access_function WHERE (uid = ? OR uid = ? OR uid = ?) AND status = 'Y'",
+        [userUid, String(user.id), user.full_name]
+      );
+      assignedIds = rights.map(r => parseInt(r.function_id)).filter(Boolean);
+    } catch (e) {}
+
+    // Fallback to user_rights table if access_function is empty
+    if (assignedIds.length === 0) {
+      try {
+        const [ur] = await db.execute(
+          'SELECT sub_function_id FROM user_rights WHERE user_id = ? AND status = 1',
+          [id]
+        );
+        assignedIds = ur.map(r => r.sub_function_id);
+      } catch (e) {}
+    }
 
     return res.json({
       status: 'success',
@@ -228,7 +256,7 @@ const getUserRights = async (req, res) => {
   }
 };
 
-// POST /api/users/:id/rights - Save user module & submodule access rights
+// POST /api/users/:id/rights - Save user module & submodule access rights in access_function table
 const updateUserRights = async (req, res) => {
   try {
     const { id } = req.params;
@@ -238,32 +266,56 @@ const updateUserRights = async (req, res) => {
       return res.status(400).json({ status: 'error', message: 'subFunctionIds must be an array' });
     }
 
-    // Delete existing rights for this user
-    await db.execute('DELETE FROM user_rights WHERE user_id = ?', [id]);
-
-    // Insert newly granted rights
-    if (subFunctionIds.length > 0) {
-      // Look up function_id for each sub_function_id
-      const [subs] = await db.execute(
-        `SELECT id, function_id FROM sub_function_master WHERE id IN (${subFunctionIds.map(() => '?').join(',')})`,
-        subFunctionIds
-      );
-
-      const subMap = {};
-      subs.forEach(s => { subMap[s.id] = s.function_id; });
-
-      for (const subId of subFunctionIds) {
-        const fnId = subMap[subId] || null;
-        await db.execute(
-          'INSERT INTO user_rights (user_id, sub_function_id, function_id, status) VALUES (?, ?, ?, 1)',
-          [id, subId, fnId]
-        );
-      }
+    const [users] = await db.execute('SELECT id, full_name, email, emp_id, utype FROM users WHERE id = ?', [id]);
+    if (users.length === 0) {
+      return res.status(404).json({ status: 'error', message: 'User not found' });
     }
+    const user = users[0];
+    const userUid = user.emp_id || user.full_name || String(user.id);
+
+    // 1. Delete existing rights from `access_function` table for this user
+    try {
+      await db.execute('DELETE FROM access_function WHERE uid = ? OR uid = ? OR uid = ?', [
+        userUid,
+        String(user.id),
+        user.full_name
+      ]);
+    } catch (e) {}
+
+    // 2. Insert into `access_function` table (Matching phpMyAdmin schema: id, uid, function_id, status='Y')
+    for (const subId of subFunctionIds) {
+      try {
+        await db.execute(
+          "INSERT INTO access_function (uid, function_id, status) VALUES (?, ?, 'Y')",
+          [userUid, String(subId)]
+        );
+      } catch (e) {}
+    }
+
+    // 3. Also sync into `user_rights` table
+    try {
+      await db.execute('DELETE FROM user_rights WHERE user_id = ?', [id]);
+      if (subFunctionIds.length > 0) {
+        const [subs] = await db.execute(
+          `SELECT id, function_id FROM sub_function_master WHERE id IN (${subFunctionIds.map(() => '?').join(',')})`,
+          subFunctionIds
+        );
+        const subMap = {};
+        subs.forEach(s => { subMap[s.id] = s.function_id; });
+
+        for (const subId of subFunctionIds) {
+          const fnId = subMap[subId] || null;
+          await db.execute(
+            'INSERT INTO user_rights (user_id, sub_function_id, function_id, status) VALUES (?, ?, ?, 1)',
+            [id, subId, fnId]
+          );
+        }
+      }
+    } catch (e) {}
 
     return res.json({
       status: 'success',
-      message: `User access rights updated successfully (${subFunctionIds.length} sub-modules granted)!`,
+      message: `User access rights saved in access_function table (${subFunctionIds.length} modules granted)!`,
       assignedCount: subFunctionIds.length
     });
   } catch (err) {

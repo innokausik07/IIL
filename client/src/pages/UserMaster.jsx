@@ -1,16 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { UserPlus, Users, RefreshCw, Pencil, Ban, CheckCircle2, Search } from 'lucide-react';
+import { UserPlus, Users, RefreshCw, Pencil, Ban, CheckCircle2, Search, X, Download } from 'lucide-react';
 
 export default function UserMaster() {
   const navigate = useNavigate();
-  const [users, setUsers] = useState([]);
-  const [userTypes, setUserTypes] = useState([]);
-  const [fetching, setFetching] = useState(false);
-  const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('ALL');
-  const [userTypeFilter, setUserTypeFilter] = useState('ALL');
+  const [users, setUsers]               = useState([]);
+  const [userTypes, setUserTypes]       = useState([]);
+  const [fetching, setFetching]         = useState(false);
+  const [search, setSearch]             = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [userTypeFilter, setUserTypeFilter] = useState('');
+  const [page, setPage]                 = useState(1);
+  const [limit, setLimit]               = useState(50);
+  const [selectedIds, setSelectedIds]   = useState([]);
 
   const token = localStorage.getItem('token');
   const headers = {
@@ -64,6 +67,20 @@ export default function UserMaster() {
     }
   };
 
+  const handleExportCsv = () => {
+    if (users.length === 0) { toast.error('No users to export'); return; }
+    const headersCsv = '"S.No","Emp ID","User Name","User Type","Mobile","Email","Owner","Status"';
+    const rowsCsv = users.map((u, i) =>
+      `"${i+1}","${u.emp_id||''}","${u.full_name||''}","${u.utype||''}","${u.mobile||''}","${u.email||''}","${u.owner||''}","${String(u.status)==='1'?'Active':'Inactive'}"`
+    ).join('\n');
+    const blob = new Blob([headersCsv + '\n' + rowsCsv], { type: 'text/csv;charset=utf-8;' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'users_export.csv';
+    a.click();
+    toast.success('Exported to CSV');
+  };
+
   const getRoleBadge = (utype) => {
     const u = String(utype || '');
     const found = userTypes.find(t => String(t.id) === u || String(t.utype).toLowerCase() === u.toLowerCase() || String(t.typename).toLowerCase() === u.toLowerCase());
@@ -73,27 +90,16 @@ export default function UserMaster() {
     const isMgr = roleName.toLowerCase().includes('manager') || roleName.toLowerCase().includes('lead');
 
     return (
-      <span style={{
-        padding: '2px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: '600',
-        background: isAdm ? '#fee2e2' : (isMgr ? '#e0e7ff' : '#f1f5f9'),
-        color: isAdm ? '#991b1b' : (isMgr ? '#3730a3' : '#334155')
-      }}>
+      <span className={`badge ${isAdm ? 'badge-workdone' : isMgr ? 'badge-assigned' : 'badge-default'}`}>
         {roleName}
       </span>
     );
   };
 
   const filteredUsers = users.filter(u => {
-    // Status Filter
-    if (statusFilter !== 'ALL' && String(u.status ?? '1') !== statusFilter) return false;
-
-    // User Type Filter
-    if (userTypeFilter !== 'ALL') {
-      const userRole = String(u.utype ?? '');
-      if (userRole !== userTypeFilter) return false;
-    }
-
-    // Search query
+    if (statusFilter && String(u.status ?? '1') !== statusFilter) return false;
+    if (userTypeFilter && String(u.utype ?? '') !== userTypeFilter) return false;
+    if (!search) return true;
     const q = search.toLowerCase();
     return (
       (u.full_name || '').toLowerCase().includes(q) ||
@@ -104,170 +110,272 @@ export default function UserMaster() {
     );
   });
 
-  return (
-    <div className="page-container">
-      {/* ─── Page Header with Add User Button ───────────────────── */}
-      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
-        <h1 style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
-          <Users size={20} /> Admin / Users Master
-        </h1>
+  const totalRecords = filteredUsers.length;
+  const totalPages   = Math.ceil(totalRecords / limit) || 1;
+  const pagedList    = filteredUsers.slice((page - 1) * limit, page * limit);
 
-        <button
-          onClick={() => navigate('/admin/user-master/add')}
-          className="btn btn-primary"
-          style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 18px', fontSize: '13px', borderRadius: '4px', fontWeight: '600' }}
-        >
-          <UserPlus size={15} /> Add User
-        </button>
+  const toggleSelectAll = (e) => {
+    if (e.target.checked) {
+      setSelectedIds(pagedList.map(u => u.id));
+    } else {
+      setSelectedIds([]);
+    }
+  };
+
+  const toggleSelectRow = (id) => {
+    setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
+
+  return (
+    <>
+      {/* ── 1. Top Bar (CCTV Audit Style) ────────────────────────────── */}
+      <div className="topbar">
+        <div>
+          <span className="topbar-title">Admin / Users Master</span>
+          <span style={{ marginLeft: 8, fontSize: 12, color: '#64748b' }}>
+            {totalRecords.toLocaleString()} total records
+          </span>
+        </div>
+        <div className="topbar-actions">
+          <button id="btn-refresh" className="btn btn-secondary" onClick={fetchUsers}>
+            <RefreshCw size={14} className={fetching ? 'spin' : ''} /> Refresh
+          </button>
+          <button className="btn btn-primary" onClick={() => navigate('/admin/user-master/add')}>
+            <UserPlus size={14} /> Add User
+          </button>
+        </div>
       </div>
 
-      {/* ─── Clean Users Table Card ────────────────────────────── */}
-      <div className="card" style={{ maxWidth: '1080px', margin: '0 auto', padding: '20px' }}>
-        {/* Top Filters & Search Bar */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', gap: '14px', flexWrap: 'wrap' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px' }}>
-              <span style={{ color: '#64748b', fontWeight: '500' }}>Status:</span>
+      <div className="page-body">
+        {/* ── 2. Filter Bar (CCTV Audit Style) ───────────────────────── */}
+        <div className="filter-bar">
+          <div className="filter-grid">
+            <div className="filter-group">
+              <label>Search Keyword</label>
+              <input
+                type="text"
+                className="form-control"
+                placeholder="Search name, emp ID, email..."
+                value={search}
+                onChange={e => { setSearch(e.target.value); setPage(1); }}
+              />
+            </div>
+
+            <div className="filter-group">
+              <label>User Type</label>
               <select
-                value={statusFilter}
-                onChange={e => setStatusFilter(e.target.value)}
-                style={{ padding: '5px 10px', border: '1px solid #cbd5e1', borderRadius: '4px', fontSize: '12px', background: '#fff' }}
+                className="form-select"
+                value={userTypeFilter}
+                onChange={e => { setUserTypeFilter(e.target.value); setPage(1); }}
               >
-                <option value="ALL">All Status</option>
+                <option value="">All Roles</option>
+                {userTypes.map(t => (
+                  <option key={t.id} value={t.id}>{t.typename}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="filter-group">
+              <label>Status</label>
+              <select
+                className="form-select"
+                value={statusFilter}
+                onChange={e => { setStatusFilter(e.target.value); setPage(1); }}
+              >
+                <option value="">All Statuses</option>
                 <option value="1">Active Only</option>
                 <option value="0">Deactive Only</option>
               </select>
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px' }}>
-              <span style={{ color: '#64748b', fontWeight: '500' }}>User Type:</span>
-              <select
-                value={userTypeFilter}
-                onChange={e => setUserTypeFilter(e.target.value)}
-                style={{ padding: '5px 10px', border: '1px solid #cbd5e1', borderRadius: '4px', fontSize: '12px', background: '#fff' }}
-              >
-                <option value="ALL">All Roles</option>
-                {userTypes.map(t => (
-                  <option key={t.id} value={t.id}>
-                    {t.typename}
-                  </option>
-                ))}
-              </select>
+            <div className="filter-group" style={{ display: 'flex', alignItems: 'flex-end', gap: 6 }}>
+              <button className="btn btn-primary" onClick={() => setPage(1)} style={{ flex: 1 }}>
+                <Search size={13} /> Search
+              </button>
+              {(search || userTypeFilter || statusFilter) && (
+                <button className="btn btn-secondary" onClick={() => { setSearch(''); setUserTypeFilter(''); setStatusFilter(''); setPage(1); }}>
+                  <X size={13} />
+                </button>
+              )}
             </div>
-
-            <div style={{ position: 'relative' }}>
-              <Search size={14} style={{ position: 'absolute', left: '10px', top: '8px', color: '#94a3b8' }} />
-              <input
-                type="text"
-                placeholder="Search name, emp ID, location..."
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                style={{ padding: '5px 10px 5px 30px', border: '1px solid #cbd5e1', borderRadius: '4px', fontSize: '12px', width: '230px' }}
-              />
-            </div>
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <span style={{ fontSize: '12px', color: '#64748b' }}>
-              Showing <strong>{filteredUsers.length}</strong> of {users.length} users
-            </span>
-            <button onClick={fetchUsers} className="btn btn-secondary" style={{ fontSize: '12px', padding: '5px 12px' }}>
-              <RefreshCw size={12} className={fetching ? 'spin' : ''} style={{ marginRight: '4px' }} /> Refresh
-            </button>
           </div>
         </div>
 
-        {/* Table */}
-        {fetching ? (
-          <p style={{ textAlign: 'center', padding: '24px', color: '#888' }}>Loading users...</p>
-        ) : (
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+        {/* ── 3. Action Buttons Row ──────────────────────────────────── */}
+        <div className="card" style={{ marginBottom: 12 }}>
+          <div className="card-body" style={{ padding: '10px 14px' }}>
+            <div className="btn-group">
+              <button className="btn btn-primary btn-sm" onClick={() => navigate('/admin/user-master/add')}>
+                <UserPlus size={13} /> Add User
+              </button>
+              <button className="btn btn-secondary btn-sm" onClick={handleExportCsv}>
+                <Download size={13} /> Export CSV
+              </button>
+              <button className="btn btn-secondary btn-sm" onClick={fetchUsers}>
+                <RefreshCw size={13} className={fetching ? 'spin' : ''} /> Refresh
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Selection bar */}
+        {selectedIds.length > 0 && (
+          <div className="selected-bar">
+            <span>{selectedIds.length} user{selectedIds.length > 1 ? 's' : ''} selected</span>
+            <button className="btn btn-secondary btn-sm" onClick={() => setSelectedIds([])}>
+              <X size={12} /> Deselect All
+            </button>
+          </div>
+        )}
+
+        {/* ── 4. Data Table Container (CCTV Audit Style) ─────────────── */}
+        <div className="table-container">
+          <div className="table-toolbar">
+            <span className="table-info">
+              Showing {totalRecords > 0 ? ((page - 1) * limit + 1) : 0}–
+              {Math.min(page * limit, totalRecords)} of {totalRecords.toLocaleString()}
+            </span>
+            <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+              <select
+                className="form-select"
+                style={{ width: 80 }}
+                value={limit}
+                onChange={e => { setLimit(Number(e.target.value)); setPage(1); }}
+              >
+                {[25, 50, 100, 200].map(n => <option key={n} value={n}>{n}</option>)}
+              </select>
+              <span style={{ fontSize: 11, color: '#64748b' }}>per page</span>
+            </div>
+          </div>
+
+          <div className="table-scroll">
+            <table className="data-table">
               <thead>
-                <tr style={{ background: '#1e293b', color: '#fff', borderBottom: '1px solid #334155' }}>
-                  <th style={{ padding: '9px 12px', textAlign: 'left' }}>S.No</th>
-                  <th style={{ padding: '9px 12px', textAlign: 'left' }}>Login / Emp ID</th>
-                  <th style={{ padding: '9px 12px', textAlign: 'left' }}>User Name</th>
-                  <th style={{ padding: '9px 12px', textAlign: 'left' }}>User Type</th>
-                  <th style={{ padding: '9px 12px', textAlign: 'left' }}>Phone No.</th>
-                  <th style={{ padding: '9px 12px', textAlign: 'left' }}>Email-id</th>
-                  <th style={{ padding: '9px 12px', textAlign: 'left' }}>Owner (Location)</th>
-                  <th style={{ padding: '9px 12px', textAlign: 'center' }}>Status</th>
-                  <th style={{ padding: '9px 12px', textAlign: 'center' }}>View/Edit</th>
+                <tr>
+                  <th className="check-cell">
+                    <input
+                      type="checkbox"
+                      onChange={toggleSelectAll}
+                      checked={pagedList.length > 0 && selectedIds.length === pagedList.length}
+                    />
+                  </th>
+                  <th style={{ width: 45 }}>#</th>
+                  <th>Emp ID</th>
+                  <th>User Name</th>
+                  <th>User Type</th>
+                  <th>Phone No.</th>
+                  <th>Email-ID</th>
+                  <th>Owner (Location)</th>
+                  <th style={{ textAlign: 'center' }}>Status</th>
+                  <th style={{ textAlign: 'center', width: 90 }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {filteredUsers.length === 0 ? (
+                {fetching ? (
                   <tr>
-                    <td colSpan={9} style={{ textAlign: 'center', padding: '28px', color: '#94a3b8' }}>
+                    <td colSpan="10" style={{ textAlign: 'center', padding: '36px', color: '#64748b' }}>
+                      <div className="spinner" style={{ margin: '0 auto 10px', width: 24, height: 24 }}></div>
+                      Loading users...
+                    </td>
+                  </tr>
+                ) : pagedList.length === 0 ? (
+                  <tr>
+                    <td colSpan="10" style={{ textAlign: 'center', padding: '36px', color: '#94a3b8' }}>
                       No users found
                     </td>
                   </tr>
                 ) : (
-                  filteredUsers.map((u, idx) => (
-                    <tr key={u.id} style={{ borderBottom: '1px solid #f1f5f9', background: idx % 2 === 0 ? '#fff' : '#fafafa' }}>
-                      <td style={{ padding: '9px 12px' }}>{idx + 1}</td>
-                      <td style={{ padding: '9px 12px', fontWeight: '500' }}>{u.emp_id || `USR_${u.id}`}</td>
-                      <td style={{ padding: '9px 12px', fontWeight: '600', color: '#1e293b' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          {u.profile_img ? (
-                            <img src={u.profile_img} alt="" style={{ width: '28px', height: '28px', borderRadius: '50%', objectFit: 'cover', border: '1px solid #cbd5e1' }} />
-                          ) : (
-                            <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: '#e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 'bold', color: '#475569' }}>
-                              {(u.full_name || 'U').charAt(0).toUpperCase()}
-                            </div>
-                          )}
-                          <span>{u.full_name}</span>
-                        </div>
-                      </td>
-                      <td style={{ padding: '9px 12px' }}>{getRoleBadge(u.utype)}</td>
-                      <td style={{ padding: '9px 12px' }}>{u.mobile || '—'}</td>
-                      <td style={{ padding: '9px 12px' }}>{u.email || '—'}</td>
-                      <td style={{ padding: '9px 12px' }}>
-                        <span style={{ fontWeight: '500', color: '#0369a1' }}>{u.owner || '—'}</span>
-                      </td>
-                      <td style={{ padding: '9px 12px', textAlign: 'center' }}>
-                        <span style={{
-                          padding: '2px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: '500',
-                          background: String(u.status) === '1' ? '#d4edda' : '#f8d7da',
-                          color: String(u.status) === '1' ? '#155724' : '#721c24'
-                        }}>
-                          {String(u.status) === '1' ? 'active' : 'deactive'}
-                        </span>
-                      </td>
-                      <td style={{ padding: '9px 12px', textAlign: 'center', whiteSpace: 'nowrap' }}>
-                        <button
-                          onClick={() => navigate(`/admin/user-master/edit/${u.id}`)}
-                          title="Edit User"
-                          style={{
-                            background: 'none', border: '1px solid #3b82f6', borderRadius: '4px',
-                            color: '#3b82f6', padding: '3px 8px', marginRight: '6px', cursor: 'pointer', fontSize: '12px'
-                          }}
-                        >
-                          <Pencil size={12} />
-                        </button>
-                        <button
-                          onClick={() => handleToggleStatus(u.id)}
-                          title={String(u.status) === '1' ? 'Deactivate' : 'Activate'}
-                          style={{
-                            background: 'none',
-                            border: `1px solid ${String(u.status) === '1' ? '#ef4444' : '#22c55e'}`,
-                            borderRadius: '4px',
-                            color: String(u.status) === '1' ? '#ef4444' : '#22c55e',
-                            padding: '3px 8px', cursor: 'pointer', fontSize: '12px'
-                          }}
-                        >
-                          {String(u.status) === '1' ? <Ban size={12} /> : <CheckCircle2 size={12} />}
-                        </button>
-                      </td>
-                    </tr>
-                  ))
+                  pagedList.map((u, idx) => {
+                    const isSelected = selectedIds.includes(u.id);
+                    const isActive = String(u.status) === '1';
+
+                    return (
+                      <tr key={u.id} className={isSelected ? 'selected' : ''}>
+                        <td className="check-cell">
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => toggleSelectRow(u.id)}
+                          />
+                        </td>
+                        <td style={{ color: '#94a3b8' }}>{(page - 1) * limit + idx + 1}</td>
+                        <td><strong>{u.emp_id || `USR_${u.id}`}</strong></td>
+                        <td>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            {u.profile_img ? (
+                              <img src={u.profile_img} alt="" style={{ width: '28px', height: '28px', borderRadius: '50%', objectFit: 'cover', border: '1px solid #cbd5e1' }} />
+                            ) : (
+                              <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: '#e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 'bold', color: '#475569' }}>
+                                {(u.full_name || 'U').charAt(0).toUpperCase()}
+                              </div>
+                            )}
+                            <strong style={{ color: '#1e293b' }}>{u.full_name}</strong>
+                          </div>
+                        </td>
+                        <td>{getRoleBadge(u.utype)}</td>
+                        <td>{u.mobile || '—'}</td>
+                        <td>{u.email || '—'}</td>
+                        <td>
+                          <span style={{ color: '#0369a1', fontWeight: '500' }}>{u.owner || '—'}</span>
+                        </td>
+                        <td style={{ textAlign: 'center' }}>
+                          <span className={`badge ${isActive ? 'badge-ack' : 'badge-default'}`}>
+                            {isActive ? 'Active' : 'Inactive'}
+                          </span>
+                        </td>
+                        <td style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>
+                          <button
+                            onClick={() => navigate(`/admin/user-master/edit/${u.id}`)}
+                            className="btn btn-secondary btn-sm"
+                            style={{ padding: '3px 7px', marginRight: 4 }}
+                            title="Edit User"
+                          >
+                            <Pencil size={12} />
+                          </button>
+                          <button
+                            onClick={() => handleToggleStatus(u.id)}
+                            className={`btn btn-sm ${isActive ? 'btn-danger' : 'btn-success'}`}
+                            style={{ padding: '3px 7px' }}
+                            title={isActive ? 'Deactivate' : 'Activate'}
+                          >
+                            {isActive ? <Ban size={12} /> : <CheckCircle2 size={12} />}
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>
           </div>
-        )}
+
+          {/* ── 5. Pagination Bar ──────────────────────────────────────── */}
+          <div className="pagination">
+            <span className="pagination-info">
+              Page {page} of {totalPages} ({totalRecords.toLocaleString()} users)
+            </span>
+            <div className="pagination-btns">
+              <button className="page-btn" disabled={page <= 1} onClick={() => setPage(1)}>«</button>
+              <button className="page-btn" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>‹</button>
+              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                const p = Math.max(1, page - 2) + i;
+                if (p > totalPages) return null;
+                return (
+                  <button
+                    key={p}
+                    className={`page-btn${p === page ? ' active' : ''}`}
+                    onClick={() => setPage(p)}
+                  >
+                    {p}
+                  </button>
+                );
+              })}
+              <button className="page-btn" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>›</button>
+              <button className="page-btn" disabled={page >= totalPages} onClick={() => setPage(totalPages)}>»</button>
+            </div>
+          </div>
+        </div>
       </div>
-    </div>
+    </>
   );
 }

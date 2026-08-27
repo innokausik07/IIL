@@ -1,27 +1,30 @@
 import React, { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
-import { Plus, RefreshCw, Pencil, Ban, ArrowLeft, Search, CheckCircle2, Eye } from 'lucide-react';
+import { Plus, RefreshCw, Pencil, Ban, Search, X, Download, ChevronLeft, ChevronRight, CheckCircle2 } from 'lucide-react';
 import { lookupPincode } from '../utils/pincodeLookup';
 
 /**
- * Generic Master Page Component
+ * Generic Master Page Component — Styled identically to CCTV Audit Data page
  * Props:
  *  - title: string
  *  - icon: JSX element
- *  - apiPath: string  (e.g. 'state_master')
+ *  - apiPath: string  (e.g. 'state_master', 'vendor_master')
  *  - fields: array of { name, label, type?, required?, options?, default? }
  *  - columns: array of { key, label }
  */
 export default function MasterPage({ title, icon, apiPath, fields, columns }) {
   const INIT = Object.fromEntries(fields.map(f => [f.name, f.default ?? '']));
-  const [list, setList]         = useState([]);
-  const [form, setForm]         = useState(INIT);
-  const [editId, setEditId]     = useState(null);
-  const [view, setView]         = useState('list'); // 'list' or 'form'
-  const [loading, setLoading]   = useState(false);
-  const [fetching, setFetching] = useState(false);
-  const [search, setSearch]     = useState('');
-  const [statusFilter, setStatusFilter] = useState('ALL');
+  const [list, setList]                 = useState([]);
+  const [form, setForm]                 = useState(INIT);
+  const [editId, setEditId]             = useState(null);
+  const [showModal, setShowModal]       = useState(false);
+  const [loading, setLoading]           = useState(false);
+  const [fetching, setFetching]         = useState(false);
+  const [search, setSearch]             = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [page, setPage]                 = useState(1);
+  const [limit, setLimit]               = useState(50);
+  const [selectedIds, setSelectedIds]   = useState([]);
 
   const token = localStorage.getItem('token');
   const hdr   = { 'Content-Type': 'application/json', 'Authorization': token ? `Bearer ${token}` : '' };
@@ -71,7 +74,7 @@ export default function MasterPage({ title, icon, apiPath, fields, columns }) {
   const handleAddNew = () => {
     setForm(INIT);
     setEditId(null);
-    setView('form');
+    setShowModal(true);
   };
 
   const handleSubmit = async (e) => {
@@ -86,7 +89,7 @@ export default function MasterPage({ title, icon, apiPath, fields, columns }) {
         toast.success(data.message || 'Saved successfully!');
         setForm(INIT);
         setEditId(null);
-        setView('list'); // Return to list view
+        setShowModal(false);
         fetchList();
       } else {
         toast.error(data.message || 'Error');
@@ -102,11 +105,11 @@ export default function MasterPage({ title, icon, apiPath, fields, columns }) {
     const populated = {};
     fields.forEach(f => { populated[f.name] = row[f.name] ?? ''; });
     setForm(populated);
-    setView('form');
+    setShowModal(true);
   };
 
   const handleDeactivate = async (id) => {
-    if (!window.confirm('Deactivate / Activate this record?')) return;
+    if (!window.confirm('Toggle status for this record?')) return;
     try {
       const res  = await fetch(`${url}/${id}`, { method: 'DELETE', headers: hdr });
       const data = await res.json();
@@ -115,227 +118,315 @@ export default function MasterPage({ title, icon, apiPath, fields, columns }) {
     } catch (e) { toast.error('Network error'); }
   };
 
+  const handleExportCsv = () => {
+    if (list.length === 0) { toast.error('No data to export'); return; }
+    const headersCsv = columns.map(c => `"${c.label}"`).join(',');
+    const rowsCsv = list.map(row => columns.map(c => `"${(row[c.key] ?? '').toString().replace(/"/g, '""')}"`).join(',')).join('\n');
+    const blob = new Blob([headersCsv + '\n' + rowsCsv], { type: 'text/csv;charset=utf-8;' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `${apiPath}_export.csv`;
+    a.click();
+    toast.success('Exported to CSV');
+  };
+
   // Filter list
   const filteredList = list.filter(row => {
-    // Status filter
-    if (statusFilter !== 'ALL') {
+    if (statusFilter) {
       const st = String(row.status ?? row.status_id ?? '');
       if (statusFilter === '1' && st !== '1' && st !== 'Active' && st !== 'Y' && st !== 'A') return false;
       if (statusFilter === '0' && (st === '1' || st === 'Active' || st === 'Y' || st === 'A')) return false;
     }
-
-    // Search query
     if (!search) return true;
     const q = search.toLowerCase();
     return Object.values(row).some(v => String(v || '').toLowerCase().includes(q));
   });
 
-  const fs = { flex: 1, padding: '7px 10px', border: '1px solid #ccc', borderRadius: '4px', fontSize: '13px', width: '100%' };
-  const ls = { flex: '0 0 35%', fontWeight: '500', fontSize: '13px' };
-  const rs = { display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' };
+  const totalRecords = filteredList.length;
+  const totalPages   = Math.ceil(totalRecords / limit) || 1;
+  const pagedList    = filteredList.slice((page - 1) * limit, page * limit);
+
+  const toggleSelectAll = (e) => {
+    if (e.target.checked) {
+      const allIds = pagedList.map((row, i) => {
+        const idKeys = ['sno', 'id', 'catid', 'psubcatid'];
+        return idKeys.map(k => row[k]).find(v => v != null) || i;
+      });
+      setSelectedIds(allIds);
+    } else {
+      setSelectedIds([]);
+    }
+  };
+
+  const toggleSelectRow = (id) => {
+    setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
 
   return (
-    <div className="page-container">
-      {/* ─── Top Header ────────────────────────────────────────── */}
-      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
-        <h1 style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
-          {icon} {title}
-        </h1>
-
-        {view === 'list' ? (
-          <button
-            onClick={handleAddNew}
-            className="btn btn-primary"
-            style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 18px', fontSize: '13px', borderRadius: '4px', fontWeight: '600' }}
-          >
-            <Plus size={15} /> Add {title.replace('Master', '').trim() || title}
+    <>
+      {/* ── 1. Top Bar (Identical to CCTV Audit Data) ────────────────── */}
+      <div className="topbar">
+        <div>
+          <span className="topbar-title">{title}</span>
+          <span style={{ marginLeft: 8, fontSize: 12, color: '#64748b' }}>
+            {totalRecords.toLocaleString()} total records
+          </span>
+        </div>
+        <div className="topbar-actions">
+          <button id="btn-refresh" className="btn btn-secondary" onClick={fetchList}>
+            <RefreshCw size={14} className={fetching ? 'spin' : ''} /> Refresh
           </button>
-        ) : (
-          <button
-            onClick={() => { setView('list'); setEditId(null); setForm(INIT); }}
-            className="btn btn-secondary"
-            style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', fontSize: '13px' }}
-          >
-            <ArrowLeft size={14} /> Back to List
+          <button className="btn btn-primary" onClick={handleAddNew}>
+            <Plus size={14} /> Add {title.replace('Master', '').trim() || title}
           </button>
-        )}
+        </div>
       </div>
 
-      {/* ─── View 1: List / Table View (Default) ───────────────── */}
-      {view === 'list' && (
-        <div className="card" style={{ maxWidth: '1080px', margin: '0 auto', padding: '20px' }}>
-          {/* Action Bar (Filters + Search + Refresh) */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', gap: '14px', flexWrap: 'wrap' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px' }}>
-                <span style={{ color: '#64748b', fontWeight: '500' }}>Status:</span>
-                <select
-                  value={statusFilter}
-                  onChange={e => setStatusFilter(e.target.value)}
-                  style={{ padding: '5px 10px', border: '1px solid #cbd5e1', borderRadius: '4px', fontSize: '12px', background: '#fff' }}
-                >
-                  <option value="ALL">All Records</option>
-                  <option value="1">Active Only</option>
-                  <option value="0">Inactive / Deactivated</option>
-                </select>
-              </div>
-
+      <div className="page-body">
+        {/* ── 2. Filter Bar (Identical to CCTV Audit Data) ───────────── */}
+        <div className="filter-bar">
+          <div className="filter-grid">
+            <div className="filter-group">
+              <label>Search Keyword</label>
               <div style={{ position: 'relative' }}>
-                <Search size={14} style={{ position: 'absolute', left: '10px', top: '8px', color: '#94a3b8' }} />
                 <input
                   type="text"
-                  placeholder="Search records..."
+                  className="form-control"
+                  placeholder={`Search ${title}...`}
                   value={search}
-                  onChange={e => setSearch(e.target.value)}
-                  style={{ padding: '5px 10px 5px 30px', border: '1px solid #cbd5e1', borderRadius: '4px', fontSize: '12px', width: '220px' }}
+                  onChange={e => { setSearch(e.target.value); setPage(1); }}
                 />
               </div>
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <span style={{ fontSize: '12px', color: '#64748b' }}>
-                Total: <strong>{filteredList.length}</strong>
-              </span>
-              <button onClick={fetchList} className="btn btn-secondary" style={{ fontSize: '12px', padding: '5px 12px' }}>
-                <RefreshCw size={12} className={fetching ? 'spin' : ''} style={{ marginRight: '4px' }} /> Refresh
+            <div className="filter-group">
+              <label>Status</label>
+              <select
+                className="form-select"
+                value={statusFilter}
+                onChange={e => { setStatusFilter(e.target.value); setPage(1); }}
+              >
+                <option value="">All Statuses</option>
+                <option value="1">Active</option>
+                <option value="0">Inactive / Deactive</option>
+              </select>
+            </div>
+
+            <div className="filter-group" style={{ display: 'flex', alignItems: 'flex-end', gap: 6 }}>
+              <button className="btn btn-primary" onClick={() => setPage(1)} style={{ flex: 1 }}>
+                <Search size={13} /> Filter
+              </button>
+              {(search || statusFilter) && (
+                <button className="btn btn-secondary" onClick={() => { setSearch(''); setStatusFilter(''); setPage(1); }}>
+                  <X size={13} />
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* ── 3. Action Buttons Row (Identical to CCTV Audit Data) ────── */}
+        <div className="card" style={{ marginBottom: 12 }}>
+          <div className="card-body" style={{ padding: '10px 14px' }}>
+            <div className="btn-group">
+              <button className="btn btn-primary btn-sm" onClick={handleAddNew}>
+                <Plus size={13} /> Add Record
+              </button>
+              <button className="btn btn-secondary btn-sm" onClick={handleExportCsv}>
+                <Download size={13} /> Export CSV
+              </button>
+              <button className="btn btn-secondary btn-sm" onClick={fetchList}>
+                <RefreshCw size={13} className={fetching ? 'spin' : ''} /> Refresh
               </button>
             </div>
           </div>
+        </div>
 
-          {/* Table */}
-          {fetching ? (
-            <p style={{ textAlign: 'center', padding: '24px', color: '#888' }}>Loading records...</p>
-          ) : (
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
-                <thead>
-                  <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
-                    <th style={{ padding: '9px 12px', textAlign: 'left' }}>#</th>
-                    {columns.map(c => (
-                      <th key={c.key} style={{ padding: '9px 12px', textAlign: 'left', whiteSpace: 'nowrap' }}>
-                        {c.label}
-                      </th>
-                    ))}
-                    <th style={{ padding: '9px 12px', textAlign: 'center' }}>Actions</th>
+        {/* Selection bar */}
+        {selectedIds.length > 0 && (
+          <div className="selected-bar">
+            <span>{selectedIds.length} record{selectedIds.length > 1 ? 's' : ''} selected</span>
+            <button className="btn btn-secondary btn-sm" onClick={() => setSelectedIds([])}>
+              <X size={12} /> Deselect All
+            </button>
+          </div>
+        )}
+
+        {/* ── 4. Data Table (Identical to CCTV Audit Data) ───────────── */}
+        <div className="table-container">
+          <div className="table-toolbar">
+            <span className="table-info">
+              Showing {totalRecords > 0 ? ((page - 1) * limit + 1) : 0}–
+              {Math.min(page * limit, totalRecords)} of {totalRecords.toLocaleString()}
+            </span>
+            <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+              <select
+                className="form-select"
+                style={{ width: 80 }}
+                value={limit}
+                onChange={e => { setLimit(Number(e.target.value)); setPage(1); }}
+              >
+                {[25, 50, 100, 200].map(n => <option key={n} value={n}>{n}</option>)}
+              </select>
+              <span style={{ fontSize: 11, color: '#64748b' }}>per page</span>
+            </div>
+          </div>
+
+          <div className="table-scroll">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th className="check-cell">
+                    <input
+                      type="checkbox"
+                      onChange={toggleSelectAll}
+                      checked={pagedList.length > 0 && selectedIds.length === pagedList.length}
+                    />
+                  </th>
+                  <th style={{ width: 45 }}>#</th>
+                  {columns.map(c => (
+                    <th key={c.key}>{c.label}</th>
+                  ))}
+                  <th style={{ textAlign: 'center', width: 90 }}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {fetching ? (
+                  <tr>
+                    <td colSpan={columns.length + 3} style={{ textAlign: 'center', padding: '36px', color: '#64748b' }}>
+                      <div className="spinner" style={{ margin: '0 auto 10px', width: 24, height: 24 }}></div>
+                      Loading data...
+                    </td>
                   </tr>
-                </thead>
-                <tbody>
-                  {filteredList.length === 0 ? (
-                    <tr>
-                      <td colSpan={columns.length + 2} style={{ textAlign: 'center', padding: '28px', color: '#94a3b8' }}>
-                        No records found
-                      </td>
-                    </tr>
-                  ) : (
-                    filteredList.map((row, i) => {
-                      const idKeys = ['sno', 'id', 'catid', 'psubcatid'];
-                      const id = idKeys.map(k => row[k]).find(v => v != null);
-                      const st = String(row.status ?? row.status_id ?? '');
-                      const isActive = st === '1' || st === 'Active' || st === 'Y' || st === 'A';
+                ) : pagedList.length === 0 ? (
+                  <tr>
+                    <td colSpan={columns.length + 3} style={{ textAlign: 'center', padding: '36px', color: '#94a3b8' }}>
+                      No records found
+                    </td>
+                  </tr>
+                ) : (
+                  pagedList.map((row, idx) => {
+                    const idKeys = ['sno', 'id', 'catid', 'psubcatid'];
+                    const id = idKeys.map(k => row[k]).find(v => v != null) || idx;
+                    const st = String(row.status ?? row.status_id ?? '');
+                    const isActive = st === '1' || st === 'Active' || st === 'Y' || st === 'A';
+                    const isSelected = selectedIds.includes(id);
 
-                      return (
-                        <tr key={id || i} style={{ borderBottom: '1px solid #f1f5f9', background: i % 2 === 0 ? '#fff' : '#fafafa' }}>
-                          <td style={{ padding: '9px 12px' }}>{i + 1}</td>
-                          {columns.map(c => (
-                            <td key={c.key} style={{ padding: '9px 12px' }}>
-                              {c.key === 'status' || c.key === 'status_id' ? (
-                                <span style={{
-                                  padding: '2px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: '500',
-                                  background: isActive ? '#d4edda' : '#f8d7da',
-                                  color: isActive ? '#155724' : '#721c24'
-                                }}>
-                                  {isActive ? 'Active' : 'Inactive'}
-                                </span>
-                              ) : (row[c.key] ?? '—')}
-                            </td>
-                          ))}
-                          <td style={{ padding: '9px 12px', textAlign: 'center', whiteSpace: 'nowrap' }}>
-                            <button
-                              onClick={() => handleEdit(row)}
-                              title="Edit"
-                              style={{
-                                background: 'none', border: '1px solid #3b82f6', borderRadius: '4px',
-                                color: '#3b82f6', padding: '3px 8px', marginRight: '6px', cursor: 'pointer', fontSize: '12px'
-                              }}
-                            >
-                              <Pencil size={12} />
-                            </button>
-                            <button
-                              onClick={() => handleDeactivate(id)}
-                              title={isActive ? 'Deactivate' : 'Activate'}
-                              style={{
-                                background: 'none',
-                                border: `1px solid ${isActive ? '#ef4444' : '#22c55e'}`,
-                                borderRadius: '4px',
-                                color: isActive ? '#ef4444' : '#22c55e',
-                                padding: '3px 8px', cursor: 'pointer', fontSize: '12px'
-                              }}
-                            >
-                              {isActive ? <Ban size={12} /> : <CheckCircle2 size={12} />}
-                            </button>
+                    return (
+                      <tr key={id} className={isSelected ? 'selected' : ''}>
+                        <td className="check-cell">
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => toggleSelectRow(id)}
+                          />
+                        </td>
+                        <td style={{ color: '#94a3b8' }}>{(page - 1) * limit + idx + 1}</td>
+                        {columns.map(c => (
+                          <td key={c.key}>
+                            {c.key === 'status' || c.key === 'status_id' ? (
+                              <span className={`badge ${isActive ? 'badge-ack' : 'badge-default'}`}>
+                                {isActive ? 'Active' : 'Inactive'}
+                              </span>
+                            ) : (
+                              <strong>{row[c.key] ?? '—'}</strong>
+                            )}
                           </td>
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      )}
+                        ))}
+                        <td style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>
+                          <button
+                            onClick={() => handleEdit(row)}
+                            className="btn btn-secondary btn-sm"
+                            style={{ padding: '3px 7px', marginRight: 4 }}
+                            title="Edit Record"
+                          >
+                            <Pencil size={12} />
+                          </button>
+                          <button
+                            onClick={() => handleDeactivate(id)}
+                            className={`btn btn-sm ${isActive ? 'btn-danger' : 'btn-success'}`}
+                            style={{ padding: '3px 7px' }}
+                            title={isActive ? 'Deactivate' : 'Activate'}
+                          >
+                            {isActive ? <Ban size={12} /> : <CheckCircle2 size={12} />}
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
 
-      {/* ─── View 2: Add / Edit Form (Only opens on Add/Edit click) ── */}
-      {view === 'form' && (
-        <div className="card" style={{ maxWidth: '820px', margin: '0 auto 24px', padding: '28px' }}>
-          <h3 style={{ marginBottom: '18px', fontSize: '14px', borderBottom: '1px solid #eee', paddingBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <Plus size={15} />
-            {editId ? `Edit ${title} #${editId}` : `Add New ${title}`}
-          </h3>
-          <form onSubmit={handleSubmit}>
-            <div style={{ display: 'grid', gridTemplateColumns: fields.length > 4 ? '1fr 1fr' : '1fr', gap: '0 30px' }}>
-              {fields.map(f => (
-                <div key={f.name} style={rs}>
-                  <label style={ls}>{f.label} {f.required && <span style={{ color: 'red' }}>*</span>}</label>
-                  {f.type === 'select' ? (
-                    <select name={f.name} value={form[f.name]} onChange={handleChange} required={f.required} style={fs}>
-                      <option value="">-- Select --</option>
-                      {(f.options || []).map(o => (
-                        <option key={o.value ?? o} value={o.value ?? o}>{o.label ?? o}</option>
-                      ))}
-                    </select>
-                  ) : f.type === 'textarea' ? (
-                    <textarea name={f.name} value={form[f.name]} onChange={handleChange} required={f.required}
-                      rows={3} style={{ ...fs, resize: 'vertical' }} />
-                  ) : (
-                    <input type={f.type || 'text'} name={f.name} value={form[f.name]}
-                      onChange={handleChange} required={f.required} style={fs} />
-                  )}
+          {/* ── 5. Pagination Bar (Identical to CCTV Audit Data) ────── */}
+          <div className="pagination">
+            <span className="pagination-info">
+              Page {page} of {totalPages} ({totalRecords.toLocaleString()} items)
+            </span>
+            <div className="pagination-btns">
+              <button className="page-btn" disabled={page <= 1} onClick={() => setPage(1)}>«</button>
+              <button className="page-btn" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>‹</button>
+              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                const p = Math.max(1, page - 2) + i;
+                if (p > totalPages) return null;
+                return (
+                  <button
+                    key={p}
+                    className={`page-btn${p === page ? ' active' : ''}`}
+                    onClick={() => setPage(p)}
+                  >
+                    {p}
+                  </button>
+                );
+              })}
+              <button className="page-btn" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>›</button>
+              <button className="page-btn" disabled={page >= totalPages} onClick={() => setPage(totalPages)}>»</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Modal: Add / Edit Form ──────────────────────────────────── */}
+      {showModal && (
+        <div className="modal-overlay" onClick={() => setShowModal(false)}>
+          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 720 }}>
+            <div className="modal-header">
+              <h3>{editId ? `Edit ${title} #${editId}` : `Add New ${title}`}</h3>
+              <button className="modal-close" onClick={() => setShowModal(false)}><X size={16} /></button>
+            </div>
+            <form onSubmit={handleSubmit}>
+              <div className="modal-body" style={{ maxHeight: '70vh', overflowY: 'auto' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: fields.length > 4 ? '1fr 1fr' : '1fr', gap: '14px' }}>
+                  {fields.map(f => (
+                    <div key={f.name} className="form-group" style={{ marginBottom: 0 }}>
+                      <label className="form-label">{f.label} {f.required && <span style={{ color: 'red' }}>*</span>}</label>
+                      {f.type === 'select' ? (
+                        <select className="form-select" name={f.name} value={form[f.name]} onChange={handleChange} required={f.required}>
+                          <option value="">-- Select --</option>
+                          {(f.options || []).map(o => (
+                            <option key={o.value ?? o} value={o.value ?? o}>{o.label ?? o}</option>
+                          ))}
+                        </select>
+                      ) : f.type === 'textarea' ? (
+                        <textarea className="form-control" name={f.name} value={form[f.name]} onChange={handleChange} required={f.required} rows={3} />
+                      ) : (
+                        <input className="form-control" type={f.type || 'text'} name={f.name} value={form[f.name]} onChange={handleChange} required={f.required} />
+                      )}
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-
-            <div style={{ display: 'flex', gap: '10px', marginTop: '20px', justifyContent: 'center' }}>
-              <button
-                type="submit"
-                disabled={loading}
-                className="btn btn-primary"
-                style={{ padding: '9px 36px', fontSize: '13px' }}
-              >
-                {loading ? 'Saving...' : (editId ? 'Update Record' : 'Save Record')}
-              </button>
-              <button
-                type="button"
-                className="btn btn-secondary"
-                style={{ padding: '9px 24px', fontSize: '13px' }}
-                onClick={() => { setView('list'); setEditId(null); setForm(INIT); }}
-              >
-                Back to List
-              </button>
-            </div>
-          </form>
+              </div>
+              <div className="modal-footer">
+                <button type="button" className="btn btn-secondary" onClick={() => setShowModal(false)}>Cancel</button>
+                <button type="submit" className="btn btn-primary" disabled={loading}>
+                  {loading ? 'Saving...' : (editId ? 'Update' : 'Save Record')}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
-    </div>
+    </>
   );
 }

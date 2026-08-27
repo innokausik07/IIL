@@ -117,8 +117,8 @@ export default function Sidebar() {
             Loading ERP Modules...
           </div>
         ) : menuTree.length === 0 ? (
-          <div style={{ padding: '20px', textAlign: 'center', color: '#888', fontSize: '12px' }}>
-            No active functions in database.
+          <div style={{ padding: '24px 16px', textAlign: 'center', color: '#64748b', fontSize: '12px', lineHeight: '1.5' }}>
+            No module access granted.<br />Please contact administrator.
           </div>
         ) : (
           menuTree.map(fn => {

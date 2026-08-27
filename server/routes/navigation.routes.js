@@ -1,7 +1,7 @@
 /**
  * Dynamic Navigation Menu API
- * Fetches active functions and sub-functions from database
- * Strictly filters navigation tree matching MySQL `access_function` table (uid, function_id, status='Y')
+ * Strictly enforces user access rights based on MySQL `access_function` table.
+ * If a user has NO access rights assigned in `access_function`, 0 modules are returned.
  */
 const express = require('express');
 const router  = express.Router();
@@ -16,7 +16,7 @@ router.get('/', async (req, res) => {
     let username = null;
     let userEmpId = null;
 
-    // 1. Safe token decoding (with verify and decode fallback)
+    // 1. Decode token from Authorization header
     const authHeader = req.headers.authorization;
     if (authHeader && authHeader.startsWith('Bearer ')) {
       const rawToken = authHeader.split(' ')[1];
@@ -41,7 +41,7 @@ router.get('/', async (req, res) => {
       }
     }
 
-    // 2. Fetch all active functions and sub-functions (Support Active, Y, 1, A)
+    // 2. Fetch all active functions and sub-functions
     const [functions] = await db.execute(
       "SELECT * FROM function_master WHERE status IN ('Active', 'Y', '1', 'A') ORDER BY tab ASC, id ASC"
     );
@@ -49,15 +49,14 @@ router.get('/', async (req, res) => {
       "SELECT * FROM sub_function_master WHERE status IN ('Y', 'Active', '1', 'A') ORDER BY sub_seq ASC, id ASC"
     );
 
-    // 3. Determine allowed sub-functions for the current user
-    let userAllowedSet = null; // null = all active allowed, Set(...) = filtered
+    // 3. Strict allowed set: Every user MUST have explicit rights in `access_function`
+    let userAllowedSet = new Set(); // Default: 0 modules accessible
 
     if (userId || username || userEmpId) {
       // Look up user details from MySQL database
       let empId = userEmpId;
       let fullName = username;
       let email = null;
-      let dbUtype = userType;
 
       try {
         let uRows = [];
@@ -73,14 +72,13 @@ router.get('/', async (req, res) => {
           empId = uRows[0].emp_id || empId;
           fullName = uRows[0].full_name || fullName;
           email = uRows[0].email;
-          dbUtype = String(uRows[0].utype || dbUtype);
         }
       } catch (e) {}
 
       const uidsToMatch = Array.from(new Set([empId, String(userId), fullName, email, username, userEmpId].filter(Boolean)));
       let assignedFunctions = [];
 
-      // 4. Query `access_function` table (Matching phpMyAdmin table: id, uid, function_id, status='Y')
+      // 4. Query `access_function` table (Matching phpMyAdmin schema: id, uid, function_id, status='Y')
       if (uidsToMatch.length > 0) {
         try {
           const placeholders = uidsToMatch.map(() => '?').join(',');
@@ -109,38 +107,27 @@ router.get('/', async (req, res) => {
         } catch (e) {}
       }
 
-      const isSuperAdmin = dbUtype === '1' || dbUtype.toUpperCase() === 'ADMIN';
-
+      // If user has specific rights in access_function, populate userAllowedSet
       if (assignedFunctions.length > 0) {
-        // User has specific rights defined in access_function -> Strictly enforce ONLY those modules
         userAllowedSet = new Set(assignedFunctions);
-      } else if (!isSuperAdmin) {
-        // Non-admin user with NO rights assigned -> Strictly show empty
-        userAllowedSet = new Set();
       } else {
-        // Super Admin with no custom restriction -> Show all active modules
-        userAllowedSet = null;
+        // User has NO rights assigned in access_function -> 0 modules accessible
+        userAllowedSet = new Set();
       }
-    } else {
-      // Unauthenticated fallback: show all active modules
-      userAllowedSet = null;
     }
 
     // 6. Group sub-functions under their parent function with strict filtering
     const menuTree = functions.map(fn => {
-      let children = subFunctions.filter(sub => sub.function_id === fn.function_id);
-
-      // If user has specific rights configured in access_function, filter sub-functions
-      if (userAllowedSet !== null) {
-        children = children.filter(sub => {
-          return (
-            userAllowedSet.has(String(sub.id)) ||
-            userAllowedSet.has(String(sub.function_id)) ||
-            userAllowedSet.has(String(fn.id)) ||
-            userAllowedSet.has(String(fn.function_id))
-          );
-        });
-      }
+      // Filter sub-functions to only those explicitly granted to the user
+      const children = subFunctions.filter(sub => {
+        if (sub.function_id !== fn.function_id) return false;
+        return (
+          userAllowedSet.has(String(sub.id)) ||
+          userAllowedSet.has(String(sub.function_id)) ||
+          userAllowedSet.has(String(fn.id)) ||
+          userAllowedSet.has(String(fn.function_id))
+        );
+      });
 
       return {
         id: fn.id,
@@ -160,7 +147,7 @@ router.get('/', async (req, res) => {
           utype: sub.utype
         }))
       };
-    }).filter(fn => fn.sub_functions.length > 0); // Only show functions that have accessible sub-modules
+    }).filter(fn => fn.sub_functions.length > 0); // Only show functions that have at least 1 granted sub-module
 
     res.json({
       status: 'success',

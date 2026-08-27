@@ -56,7 +56,7 @@ export default function Sidebar() {
   // Fetch dynamic navigation tree from database
   const fetchMenu = async () => {
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('erp_token');
       const res = await fetch('/api/navigation', {
         headers: { 'Authorization': token ? `Bearer ${token}` : '' }
       });

@@ -1,8 +1,8 @@
 /**
  * Dynamic Navigation Menu API
  * Strictly driven by MySQL `access_function` table.
- * - Queries `access_function` for the logged-in user's emp_id and user aliases.
- * - Accurately filters sub-functions and functions.
+ * - Queries `access_function` for the logged-in user's emp_id and all matching identifiers.
+ * - Accurately returns the active navigation menu tree.
  */
 const express = require('express');
 const router  = express.Router();
@@ -54,41 +54,31 @@ router.get('/', async (req, res) => {
     let userAllowedSet = new Set(); // Default: 0 modules accessible
 
     if (userId || username || userEmpId) {
-      // Look up user's exact emp_id and data from `users` table
-      let empId = userEmpId;
-      let fullName = username;
-      let email = null;
+      let candidateIds = [];
 
       try {
-        let uRows = [];
-        if (userId) {
-          [uRows] = await db.execute('SELECT id, emp_id, full_name, email, utype FROM users WHERE id = ? LIMIT 1', [userId]);
-        }
-        if (uRows.length === 0 && (userEmpId || username)) {
-          [uRows] = await db.execute('SELECT id, emp_id, full_name, email, utype FROM users WHERE emp_id = ? OR full_name = ? LIMIT 1', [userEmpId || '', username || '']);
-        }
+        // Find all potential matching user records from `users` table
+        const [uRows] = await db.execute(
+          'SELECT id, emp_id, full_name, email, utype FROM users WHERE id = ? OR full_name = ? OR full_name LIKE ? OR email = ? OR emp_id = ?',
+          [userId || 0, username || '', `%${username || ''}%`, username || '', userEmpId || '']
+        );
 
-        if (uRows.length > 0) {
-          userId = uRows[0].id;
-          empId = uRows[0].emp_id || empId;
-          fullName = uRows[0].full_name || fullName;
-          email = uRows[0].email;
-        }
+        uRows.forEach(u => {
+          if (u.emp_id) candidateIds.push(String(u.emp_id).trim());
+          if (u.id) candidateIds.push(String(u.id).trim());
+          if (u.full_name) candidateIds.push(String(u.full_name).trim());
+          if (u.email) candidateIds.push(String(u.email).trim());
+        });
       } catch (e) {}
 
-      // Collect all candidate identifiers (emp_id, userId, fullName, email, username)
-      const candidateIds = Array.from(new Set([
-        empId,
-        userEmpId,
-        String(userId),
-        fullName,
-        username,
-        email
-      ].filter(Boolean)));
+      if (userEmpId) candidateIds.push(String(userEmpId).trim());
+      if (userId) candidateIds.push(String(userId).trim());
+      if (username) candidateIds.push(String(username).trim());
 
+      candidateIds = Array.from(new Set(candidateIds.filter(Boolean)));
       let assignedFunctions = [];
 
-      // 4. Query `access_function` table matching emp_id or aliases
+      // 4. Query `access_function` table matching all candidate IDs
       if (candidateIds.length > 0) {
         const placeholders = candidateIds.map(() => '?').join(',');
         try {
@@ -103,7 +93,6 @@ router.get('/', async (req, res) => {
             });
           }
         } catch (e) {
-          // Fallback if table uses column name `uid`
           try {
             const [accessRows] = await db.execute(
               `SELECT function_id, sub_function_id FROM access_function WHERE (uid IN (${placeholders}) OR TRIM(uid) IN (${placeholders})) AND status IN ('Y', '1', 'Active', 'A')`,
@@ -148,7 +137,7 @@ router.get('/', async (req, res) => {
                             String(sub.function_id).trim() === String(fn.id).trim();
         if (!fnCodeMatch) return false;
 
-        // Sub-function must be explicitly in user's access rights
+        // Sub-function must be explicitly present in access_function table
         return (
           userAllowedSet.has(String(sub.id).trim()) ||
           userAllowedSet.has(String(sub.function_id).trim()) ||
@@ -180,7 +169,8 @@ router.get('/', async (req, res) => {
     res.json({
       status: 'success',
       data: menuTree,
-      totalAccessibleModules: menuTree.length
+      totalAccessibleModules: menuTree.length,
+      userAllowedCount: userAllowedSet.size
     });
   } catch (err) {
     console.error('Navigation Route Error:', err);

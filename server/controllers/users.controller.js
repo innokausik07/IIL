@@ -271,24 +271,30 @@ const updateUserRights = async (req, res) => {
       return res.status(404).json({ status: 'error', message: 'User not found' });
     }
     const user = users[0];
-    const userUid = user.emp_id || user.full_name || String(user.id);
+    const uids = Array.from(new Set([user.emp_id, String(user.id), user.full_name].filter(Boolean)));
 
-    // 1. Delete existing rights from `access_function` table for this user
-    try {
-      await db.execute('DELETE FROM access_function WHERE uid = ? OR uid = ? OR uid = ?', [
-        userUid,
-        String(user.id),
-        user.full_name
-      ]);
-    } catch (e) {}
+    // 1. Delete existing rights from `access_function` table for all aliases of this user
+    for (const u of uids) {
+      try {
+        await db.execute('DELETE FROM access_function WHERE uid = ?', [u]);
+      } catch (e) {}
+    }
 
-    // 2. Insert into `access_function` table (Matching phpMyAdmin schema: id, uid, function_id, status='Y')
+    // 2. Insert into `access_function` table for user's emp_id (or primary uid)
+    const primaryUid = user.emp_id || String(user.id) || user.full_name;
     for (const subId of subFunctionIds) {
       try {
         await db.execute(
           "INSERT INTO access_function (uid, function_id, status) VALUES (?, ?, 'Y')",
-          [userUid, String(subId)]
+          [primaryUid, String(subId)]
         );
+        // Also insert for emp_id if primaryUid was not emp_id
+        if (user.emp_id && user.emp_id !== primaryUid) {
+          await db.execute(
+            "INSERT INTO access_function (uid, function_id, status) VALUES (?, ?, 'Y')",
+            [user.emp_id, String(subId)]
+          );
+        }
       } catch (e) {}
     }
 

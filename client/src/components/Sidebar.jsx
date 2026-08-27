@@ -81,6 +81,8 @@ export default function Sidebar() {
 
   useEffect(() => {
     fetchMenu();
+    window.addEventListener('rights-updated', fetchMenu);
+    return () => window.removeEventListener('rights-updated', fetchMenu);
   }, []);
 
   const toggleSection = (fnId) => {

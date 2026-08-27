@@ -16,7 +16,7 @@ router.get('/', async (req, res) => {
     let username = null;
     let userEmpId = null;
 
-    // Decode token if provided
+    // 1. Decode token if provided in Authorization header
     const authHeader = req.headers.authorization;
     if (authHeader && authHeader.startsWith('Bearer ')) {
       try {
@@ -26,7 +26,9 @@ router.get('/', async (req, res) => {
         userType = String(decoded.utype || '');
         username = decoded.full_name || decoded.userid;
         userEmpId = decoded.emp_id;
-      } catch (e) {}
+      } catch (e) {
+        console.warn('Navigation token decode failed:', e.message);
+      }
     }
 
     const [functions] = await db.execute(
@@ -36,65 +38,92 @@ router.get('/', async (req, res) => {
       "SELECT * FROM sub_function_master WHERE status = 'Y' ORDER BY sub_seq ASC, id ASC"
     );
 
-    // Determine allowed sub-functions for the current user
-    let userAllowedSubIds = null;
+    // 2. Determine allowed sub-functions for the current user
+    let userAllowedSet = null; // null = all allowed, Set(...) = strictly allowed IDs
 
     if (userId) {
-      // Look up user's exact emp_id and username from DB if not in token
+      // Look up user's exact emp_id, full_name, email, utype from DB
       let empId = userEmpId;
       let fullName = username;
+      let email = null;
+      let dbUtype = userType;
+
       try {
-        const [uRows] = await db.execute('SELECT emp_id, full_name, utype FROM users WHERE id = ? LIMIT 1', [userId]);
+        const [uRows] = await db.execute(
+          'SELECT id, emp_id, full_name, email, utype FROM users WHERE id = ? LIMIT 1',
+          [userId]
+        );
         if (uRows.length > 0) {
           empId = uRows[0].emp_id || empId;
           fullName = uRows[0].full_name || fullName;
-          userType = String(uRows[0].utype || userType);
+          email = uRows[0].email;
+          dbUtype = String(uRows[0].utype || dbUtype);
         }
       } catch (e) {}
 
-      let assigned = [];
+      const uidsToMatch = Array.from(new Set([empId, String(userId), fullName, email].filter(Boolean)));
+      let assignedFunctions = [];
 
-      // 1. Query the `access_function` table (Matching phpMyAdmin table: id, uid, function_id, status='Y')
-      try {
-        const [accessRows] = await db.execute(
-          "SELECT function_id FROM access_function WHERE (uid = ? OR uid = ? OR uid = ?) AND status = 'Y'",
-          [empId || '', String(userId), fullName || '']
-        );
-        if (accessRows.length > 0) {
-          assigned = accessRows.map(r => parseInt(r.function_id)).filter(Boolean);
+      // 3. Query `access_function` table (Matching phpMyAdmin table: id, uid, function_id, status='Y')
+      if (uidsToMatch.length > 0) {
+        try {
+          const placeholders = uidsToMatch.map(() => '?').join(',');
+          const [accessRows] = await db.execute(
+            `SELECT function_id FROM access_function WHERE uid IN (${placeholders}) AND status = 'Y'`,
+            uidsToMatch
+          );
+          if (accessRows.length > 0) {
+            assignedFunctions = accessRows.map(r => String(r.function_id).trim()).filter(Boolean);
+          }
+        } catch (e) {
+          console.error('Error querying access_function:', e.message);
         }
-      } catch (e) {}
+      }
 
-      // 2. Query `user_rights` table fallback
-      if (assigned.length === 0) {
+      // 4. Query `user_rights` table fallback
+      if (assignedFunctions.length === 0) {
         try {
           const [rights] = await db.execute(
-            'SELECT sub_function_id FROM user_rights WHERE user_id = ? AND status = 1',
+            'SELECT sub_function_id, function_id FROM user_rights WHERE user_id = ? AND status = 1',
             [userId]
           );
           if (rights.length > 0) {
-            assigned = rights.map(r => r.sub_function_id);
+            assignedFunctions = rights.map(r => String(r.sub_function_id)).filter(Boolean);
           }
         } catch (e) {}
       }
 
-      if (assigned.length > 0) {
-        // User has specific rights defined in access_function -> Strictly show ONLY those sub-modules
-        userAllowedSubIds = new Set(assigned);
-      } else if (userType !== '1') {
-        // Non-admin user with no rights granted -> Show empty/restricted menu
-        userAllowedSubIds = new Set();
+      const isSuperAdmin = dbUtype === '1' || dbUtype.toUpperCase() === 'ADMIN';
+
+      if (assignedFunctions.length > 0) {
+        // User has specific rights defined in access_function -> Strictly enforce ONLY those modules
+        userAllowedSet = new Set(assignedFunctions);
+      } else if (!isSuperAdmin) {
+        // Non-admin user with NO rights assigned in access_function -> Strictly HIDE all modules
+        userAllowedSet = new Set();
+      } else {
+        // Super Admin with no specific custom restrictions -> Show all active modules
+        userAllowedSet = null;
       }
-      // If userType === '1' (Super Admin) and no custom restriction, userAllowedSubIds remains null (all active modules allowed)
+    } else {
+      // Unauthenticated user -> Show no modules
+      userAllowedSet = new Set();
     }
 
-    // Group sub-functions under their parent function
+    // 5. Group sub-functions under their parent function with strict filtering
     const menuTree = functions.map(fn => {
       let children = subFunctions.filter(sub => sub.function_id === fn.function_id);
 
       // If user has specific rights configured in access_function, filter sub-functions
-      if (userAllowedSubIds !== null) {
-        children = children.filter(sub => userAllowedSubIds.has(sub.id));
+      if (userAllowedSet !== null) {
+        children = children.filter(sub => {
+          return (
+            userAllowedSet.has(String(sub.id)) ||
+            userAllowedSet.has(String(sub.function_id)) ||
+            userAllowedSet.has(String(fn.id)) ||
+            userAllowedSet.has(String(fn.function_id))
+          );
+        });
       }
 
       return {
@@ -117,8 +146,14 @@ router.get('/', async (req, res) => {
       };
     }).filter(fn => fn.sub_functions.length > 0); // Only show functions that have accessible sub-modules
 
-    res.json({ status: 'success', data: menuTree, totalAccessibleModules: menuTree.length });
+    res.json({
+      status: 'success',
+      data: menuTree,
+      totalAccessibleModules: menuTree.length,
+      user: { userId, userType }
+    });
   } catch (err) {
+    console.error('Navigation Route Error:', err);
     res.status(500).json({ status: 'error', message: err.sqlMessage || err.message });
   }
 });

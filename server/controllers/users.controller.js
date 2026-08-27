@@ -220,23 +220,16 @@ const getUserRights = async (req, res) => {
       "SELECT id, function_id, sub_name, sub_seq, file_name, tab, utype FROM sub_function_master WHERE status = 'Y' ORDER BY sub_seq ASC, id ASC"
     );
 
-    // Fetch currently granted rights from access_function table (Support both emp_id and uid column)
+    // Fetch currently granted rights from access_function table strictly for this emp_id
+    const targetEmpId = user.emp_id || String(user.id);
     let assignedIds = [];
     try {
       const [rights] = await db.execute(
-        "SELECT function_id, sub_function_id FROM access_function WHERE (emp_id = ? OR emp_id = ? OR emp_id = ?) AND status = 'Y'",
-        [userUid, String(user.id), user.full_name]
+        "SELECT function_id, sub_function_id FROM access_function WHERE (emp_id = ? OR uid = ?) AND status IN ('Y', '1', 'Active', 'A')",
+        [targetEmpId, targetEmpId]
       );
       assignedIds = rights.map(r => parseInt(r.sub_function_id || r.function_id)).filter(Boolean);
-    } catch (e) {
-      try {
-        const [rightsOld] = await db.execute(
-          "SELECT function_id, sub_function_id FROM access_function WHERE (uid = ? OR uid = ? OR uid = ?) AND status = 'Y'",
-          [userUid, String(user.id), user.full_name]
-        );
-        assignedIds = rightsOld.map(r => parseInt(r.sub_function_id || r.function_id)).filter(Boolean);
-      } catch (err) {}
-    }
+    } catch (e) {}
 
     // Fallback to user_rights table if access_function is empty
     if (assignedIds.length === 0) {
@@ -264,7 +257,7 @@ const getUserRights = async (req, res) => {
   }
 };
 
-// POST /api/users/:id/rights - Save user module & submodule access rights in access_function table
+// POST /api/users/:id/rights - Save user module & submodule access rights in access_function table strictly by emp_id
 const updateUserRights = async (req, res) => {
   try {
     const { id } = req.params;
@@ -279,7 +272,7 @@ const updateUserRights = async (req, res) => {
       return res.status(404).json({ status: 'error', message: 'User not found' });
     }
     const user = users[0];
-    const uids = Array.from(new Set([user.emp_id, String(user.id), user.full_name].filter(Boolean)));
+    const targetEmpId = user.emp_id || String(user.id);
 
     // Auto-rename uid to emp_id and add sub_function_id if needed
     try {
@@ -300,40 +293,36 @@ const updateUserRights = async (req, res) => {
       subs.forEach(s => { subMap[s.id] = s.function_id; });
     }
 
-    // 1. Delete existing rights from `access_function` table
-    for (const u of uids) {
+    // 1. Delete existing rights strictly for this user's emp_id
+    try {
+      await db.execute('DELETE FROM access_function WHERE emp_id = ?', [targetEmpId]);
+    } catch (e) {
       try {
-        await db.execute('DELETE FROM access_function WHERE emp_id = ?', [u]);
-      } catch (e) {
-        try {
-          await db.execute('DELETE FROM access_function WHERE uid = ?', [u]);
-        } catch (err) {}
-      }
+        await db.execute('DELETE FROM access_function WHERE uid = ?', [targetEmpId]);
+      } catch (err) {}
     }
 
-    // 2. Insert into `access_function` table (emp_id, function_id, sub_function_id, status='Y')
+    // 2. Insert ONLY 1 row per sub_function_id strictly with emp_id
     for (const subId of subFunctionIds) {
       const parentFnId = subMap[subId] || '';
-      for (const u of uids) {
+      try {
+        await db.execute(
+          "INSERT INTO access_function (emp_id, function_id, sub_function_id, status) VALUES (?, ?, ?, 'Y')",
+          [targetEmpId, String(parentFnId), String(subId)]
+        );
+      } catch (err) {
         try {
           await db.execute(
-            "INSERT INTO access_function (emp_id, function_id, sub_function_id, status) VALUES (?, ?, ?, 'Y')",
-            [u, String(parentFnId), String(subId)]
+            "INSERT INTO access_function (uid, function_id, sub_function_id, status) VALUES (?, ?, ?, 'Y')",
+            [targetEmpId, String(parentFnId), String(subId)]
           );
-        } catch (err) {
+        } catch (e) {
           try {
             await db.execute(
-              "INSERT INTO access_function (uid, function_id, sub_function_id, status) VALUES (?, ?, ?, 'Y')",
-              [u, String(parentFnId), String(subId)]
+              "INSERT INTO access_function (emp_id, function_id, status) VALUES (?, ?, 'Y')",
+              [targetEmpId, String(subId)]
             );
-          } catch (e) {
-            try {
-              await db.execute(
-                "INSERT INTO access_function (uid, function_id, status) VALUES (?, ?, 'Y')",
-                [u, String(subId)]
-              );
-            } catch (e2) {}
-          }
+          } catch (e2) {}
         }
       }
     }
@@ -352,7 +341,7 @@ const updateUserRights = async (req, res) => {
 
     return res.json({
       status: 'success',
-      message: `User access rights saved in access_function table (${subFunctionIds.length} modules granted)!`,
+      message: `User access rights saved in access_function table (${subFunctionIds.length} modules granted for emp_id ${targetEmpId})!`,
       assignedCount: subFunctionIds.length
     });
   } catch (err) {

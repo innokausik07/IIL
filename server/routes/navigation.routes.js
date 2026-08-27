@@ -1,8 +1,8 @@
 /**
  * Dynamic Navigation Menu API
- * 100% Strictly driven by MySQL `access_function` table.
- * - ONLY the modules & sub-modules saved in `access_function` (`status = 'Y'`) will appear in the sidebar.
- * - If `access_function` is empty or the user ID has no records, 0 modules are shown.
+ * Strictly driven by MySQL `access_function` table.
+ * Column `uid` in `access_function` represents the user's `emp_id`.
+ * Only granted modules & sub-modules for that `emp_id` will appear in the sidebar.
  */
 const express = require('express');
 const router  = express.Router();
@@ -50,11 +50,11 @@ router.get('/', async (req, res) => {
       "SELECT * FROM sub_function_master WHERE status IN ('Y', 'Active', '1', 'A') ORDER BY sub_seq ASC, id ASC"
     );
 
-    // 3. Strict allowed set: Exclusively driven by `access_function` table
+    // 3. Determine allowed sub-functions for the current user (uid = emp_id)
     let userAllowedSet = new Set(); // Default: 0 modules accessible
 
     if (userId || username || userEmpId) {
-      // Look up user details from MySQL database
+      // Look up user's exact emp_id from `users` table
       let empId = userEmpId;
       let fullName = username;
       let email = null;
@@ -76,16 +76,17 @@ router.get('/', async (req, res) => {
         }
       } catch (e) {}
 
+      // Collect all possible identifiers with emp_id as primary
       const uidsToMatch = Array.from(new Set([empId, String(userId), fullName, email, username, userEmpId].filter(Boolean)));
       let assignedFunctions = [];
 
-      // 4. Query `access_function` table directly (Schema: id, uid, function_id, sub_function_id, status='Y')
+      // 4. Query `access_function` table (uid = emp_id, function_id, sub_function_id, status='Y')
       if (uidsToMatch.length > 0) {
         try {
           const placeholders = uidsToMatch.map(() => '?').join(',');
           const [accessRows] = await db.execute(
-            `SELECT function_id, sub_function_id FROM access_function WHERE uid IN (${placeholders}) AND status = 'Y'`,
-            uidsToMatch
+            `SELECT function_id, sub_function_id FROM access_function WHERE (uid IN (${placeholders}) OR TRIM(uid) IN (${placeholders})) AND status IN ('Y', '1', 'Active', 'A')`,
+            [...uidsToMatch, ...uidsToMatch]
           );
           if (accessRows.length > 0) {
             accessRows.forEach(r => {
@@ -94,12 +95,12 @@ router.get('/', async (req, res) => {
             });
           }
         } catch (e) {
-          // Fallback if sub_function_id column is not in query
+          // Fallback query if sub_function_id column is not in query
           try {
             const placeholders = uidsToMatch.map(() => '?').join(',');
             const [accessRows] = await db.execute(
-              `SELECT function_id FROM access_function WHERE uid IN (${placeholders}) AND status = 'Y'`,
-              uidsToMatch
+              `SELECT function_id FROM access_function WHERE (uid IN (${placeholders}) OR TRIM(uid) IN (${placeholders})) AND status IN ('Y', '1', 'Active', 'A')`,
+              [...uidsToMatch, ...uidsToMatch]
             );
             if (accessRows.length > 0) {
               assignedFunctions = accessRows.map(r => String(r.function_id).trim()).filter(Boolean);
@@ -132,14 +133,19 @@ router.get('/', async (req, res) => {
 
     // 6. Group sub-functions under their parent function with strict filtering
     const menuTree = functions.map(fn => {
-      // Filter sub-functions to only those explicitly listed in access_function
+      // Filter sub-functions to only those explicitly granted in access_function
       const children = subFunctions.filter(sub => {
-        if (sub.function_id !== fn.function_id) return false;
+        // Sub-function must belong to this parent function
+        const fnCodeMatch = String(sub.function_id).trim().toUpperCase() === String(fn.function_id).trim().toUpperCase() ||
+                            String(sub.function_id).trim() === String(fn.id).trim();
+        if (!fnCodeMatch) return false;
+
+        // Sub-function must be explicitly in user's access rights
         return (
-          userAllowedSet.has(String(sub.id)) ||
-          userAllowedSet.has(String(sub.function_id)) ||
-          userAllowedSet.has(String(fn.id)) ||
-          userAllowedSet.has(String(fn.function_id))
+          userAllowedSet.has(String(sub.id).trim()) ||
+          userAllowedSet.has(String(sub.function_id).trim()) ||
+          userAllowedSet.has(String(fn.id).trim()) ||
+          userAllowedSet.has(String(fn.function_id).trim())
         );
       });
 

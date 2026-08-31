@@ -261,4 +261,112 @@ router.get('/dashboard', async (req, res) => {
   }
 });
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// RECURRING MONTHLY INVOICE GENERATOR
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// POST trigger recurring billing run for active orders
+router.post('/recurring/generate-monthly', async (req, res) => {
+  const conn = await db.getConnection();
+  try {
+    await conn.beginTransaction();
+
+    const currentMonth = req.body.target_month || new Date().toISOString().slice(0, 7); // e.g. "2026-08"
+    const [year, month] = currentMonth.split('-');
+    const periodFrom = `${year}-${month}-01`;
+    const lastDay = new Date(parseInt(year), parseInt(month), 0).getDate();
+    const periodTo   = `${year}-${month}-${String(lastDay).padStart(2, '0')}`;
+    const dueDate    = `${year}-${month}-15`; // default 15th
+
+    // Get all Active rental orders
+    const [activeOrders] = await conn.execute(`
+      SELECT ro.*, cm.client_name 
+      FROM rental_orders ro
+      JOIN client_master cm ON ro.client_id = cm.id
+      WHERE ro.status = 'Active'
+    `);
+
+    // Get Rental Invoice Type ID
+    const [[rentalType]] = await conn.execute(`
+      SELECT id FROM invoice_type_master WHERE type_code = 'RENTAL' LIMIT 1
+    `);
+
+    let generatedCount = 0;
+    const generatedInvoices = [];
+
+    for (const order of activeOrders) {
+      // Check if invoice already exists for this order in this billing period
+      const [[existing]] = await conn.execute(`
+        SELECT id FROM invoice_master 
+        WHERE order_id = ? AND billing_period_from = ? AND status != 'Cancelled'
+        LIMIT 1
+      `, [order.id, periodFrom]);
+
+      if (existing) continue; // Already generated for this period
+
+      // Fetch order lines
+      const [lines] = await conn.execute(`
+        SELECT rol.*, pm.product_name, rp.plan_name 
+        FROM rental_order_lines rol
+        JOIN product_master pm ON rol.product_id = pm.id
+        LEFT JOIN rental_plan_master rp ON rol.plan_id = rp.id
+        WHERE rol.order_id = ?
+      `, [order.id]);
+
+      if (!lines.length) continue;
+
+      const subtotal   = lines.reduce((s, l) => s + (parseFloat(l.amount) || 0), 0);
+      const tax_amount = lines.reduce((s, l) => s + (parseFloat(l.amount) || 0) * 0.18, 0); // standard 18% GST
+      const total      = subtotal + tax_amount;
+
+      const invoice_no = await nextCode('INV', 'invoice_master', 'invoice_no');
+
+      const [invResult] = await conn.execute(`
+        INSERT INTO invoice_master (
+          invoice_no, invoice_type_id, client_id, order_id, invoice_date,
+          due_date, billing_period_from, billing_period_to, subtotal, tax_amount,
+          discount, total, paid_amount, status, created_by
+        ) VALUES (?, ?, ?, ?, CURDATE(), ?, ?, ?, ?, ?, 0, ?, 0, 'Sent', ?)
+      `, [
+        invoice_no, rentalType?.id || null, order.client_id, order.id, dueDate,
+        periodFrom, periodTo, subtotal, tax_amount, total, req.body.created_by || null
+      ]);
+
+      const invId = invResult.insertId;
+
+      for (const line of lines) {
+        await conn.execute(`
+          INSERT INTO invoice_lines (invoice_id, description, qty, unit_rate, tax_rate, amount)
+          VALUES (?, ?, ?, ?, 18, ?)
+        `, [
+          invId,
+          `Monthly Rental (${currentMonth}): ${line.product_name} ${line.plan_name ? '- ' + line.plan_name : ''}`,
+          line.qty,
+          line.unit_rate,
+          line.amount
+        ]);
+      }
+
+      generatedCount++;
+      generatedInvoices.push({ order_no: order.order_no, client_name: order.client_name, invoice_no, total });
+    }
+
+    await conn.commit();
+    res.json({
+      status: 'success',
+      message: generatedCount > 0 
+        ? `Successfully generated ${generatedCount} recurring invoice(s) for ${currentMonth}!` 
+        : `All active orders already have invoices generated for ${currentMonth}.`,
+      generated_count: generatedCount,
+      invoices: generatedInvoices
+    });
+  } catch (e) {
+    await conn.rollback();
+    res.status(500).json({ status: 'error', message: e.sqlMessage || e.message });
+  } finally {
+    conn.release();
+  }
+});
+
 module.exports = router;
+

@@ -38,6 +38,8 @@ app.use('/api/store-stock',   require('./routes/storeStock.routes'));
 app.use('/api/sync',          require('./routes/sync.routes'));      // Called by Google Apps Script
 app.use('/api/rental',        require('./routes/rental.routes'));   // Phase 2: Rental Orders & Allocation
 app.use('/api/finance',       require('./routes/finance.routes'));  // Phase 2: Invoices & Payments
+app.use('/api/maintenance',   require('./routes/maintenance.routes')); // Phase 3: Service Tickets & Maintenance
+app.use('/api/reports',       require('./routes/reports.routes'));     // Phase 3: Analytics & Executive Reports
 
 // ── Health check ──────────────────────────────────────────────────────────────
 app.get('/api/health', (req, res) => {

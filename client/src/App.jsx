@@ -65,6 +65,10 @@ import RentalOrderForm from './pages/RentalOrderForm';
 import RentalOrderDetail from './pages/RentalOrderDetail';
 import InvoiceMaster from './pages/InvoiceMaster';
 
+// ── Phase 3 ERP: Service & Maintenance, Reports & Analytics ───────────
+import ServiceTickets from './pages/ServiceTickets';
+import ReportsAnalytics from './pages/ReportsAnalytics';
+
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
   if (loading) return <div className="page-loading"><div className="spinner"></div></div>;
@@ -128,6 +132,12 @@ function AppRoutes() {
 
       {/* ── Phase 2 ERP: Finance & Invoices ───────────────────────────────── */}
       <Route path="/finance/invoices"               element={<ProtectedRoute><InvoiceMaster /></ProtectedRoute>} />
+
+      {/* ── Phase 3 ERP: Service & Maintenance ────────────────────────────── */}
+      <Route path="/maintenance/tickets"            element={<ProtectedRoute><ServiceTickets /></ProtectedRoute>} />
+
+      {/* ── Phase 3 ERP: Reports & Executive Analytics ────────────────────── */}
+      <Route path="/reports/analytics"              element={<ProtectedRoute><ReportsAnalytics /></ProtectedRoute>} />
 
       {/* ── Phase 1 ERP: Organization Masters ────────────────────────────── */}
       <Route path="/org/org-levels"         element={<ProtectedRoute><OrgMasters /></ProtectedRoute>} />

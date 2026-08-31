@@ -10,54 +10,54 @@
 
 -- A1. users — add org hierarchy & role fields
 ALTER TABLE `users`
-  ADD COLUMN IF NOT EXISTS `designation`     VARCHAR(100) DEFAULT NULL AFTER `emp_id`,
-  ADD COLUMN IF NOT EXISTS `org_unit_id`     INT UNSIGNED DEFAULT NULL AFTER `designation`,
-  ADD COLUMN IF NOT EXISTS `location_id`     INT UNSIGNED DEFAULT NULL AFTER `org_unit_id`,
-  ADD COLUMN IF NOT EXISTS `reporting_to`    INT UNSIGNED DEFAULT NULL AFTER `location_id`,
-  ADD COLUMN IF NOT EXISTS `updated_at`      TIMESTAMP NULL ON UPDATE CURRENT_TIMESTAMP AFTER `profile_img`;
+  ADD COLUMN IF NOT EXISTS `designation`  VARCHAR(100) DEFAULT NULL,
+  ADD COLUMN IF NOT EXISTS `org_unit_id`  INT UNSIGNED DEFAULT NULL,
+  ADD COLUMN IF NOT EXISTS `location_id`  INT UNSIGNED DEFAULT NULL,
+  ADD COLUMN IF NOT EXISTS `reporting_to` INT UNSIGNED DEFAULT NULL,
+  ADD COLUMN IF NOT EXISTS `updated_at`   TIMESTAMP NULL ON UPDATE CURRENT_TIMESTAMP;
 
 -- A2. locations — add hierarchy tree support
 ALTER TABLE `locations`
-  ADD COLUMN IF NOT EXISTS `loc_code`        VARCHAR(30)  DEFAULT NULL AFTER `id`,
-  ADD COLUMN IF NOT EXISTS `type_id`         INT UNSIGNED DEFAULT NULL AFTER `location_name`,
-  ADD COLUMN IF NOT EXISTS `parent_loc_id`   INT UNSIGNED DEFAULT NULL AFTER `type_id`,
-  ADD COLUMN IF NOT EXISTS `level`           INT          DEFAULT 1    AFTER `parent_loc_id`,
-  ADD COLUMN IF NOT EXISTS `company_id`      INT UNSIGNED DEFAULT NULL AFTER `level`,
-  ADD COLUMN IF NOT EXISTS `org_unit_id`     INT UNSIGNED DEFAULT NULL AFTER `company_id`,
-  ADD COLUMN IF NOT EXISTS `responsible_user_id` INT UNSIGNED DEFAULT NULL AFTER `org_unit_id`,
-  ADD COLUMN IF NOT EXISTS `updated_at`      TIMESTAMP NULL ON UPDATE CURRENT_TIMESTAMP;
+  ADD COLUMN IF NOT EXISTS `loc_code`            VARCHAR(30)  DEFAULT NULL,
+  ADD COLUMN IF NOT EXISTS `type_id`             INT UNSIGNED DEFAULT NULL,
+  ADD COLUMN IF NOT EXISTS `parent_loc_id`       INT UNSIGNED DEFAULT NULL,
+  ADD COLUMN IF NOT EXISTS `level`               INT          DEFAULT 1,
+  ADD COLUMN IF NOT EXISTS `company_id`          INT UNSIGNED DEFAULT NULL,
+  ADD COLUMN IF NOT EXISTS `org_unit_id`         INT UNSIGNED DEFAULT NULL,
+  ADD COLUMN IF NOT EXISTS `responsible_user_id` INT UNSIGNED DEFAULT NULL,
+  ADD COLUMN IF NOT EXISTS `updated_at`          TIMESTAMP NULL ON UPDATE CURRENT_TIMESTAMP;
 
 -- A3. client_master — add rental fields
 ALTER TABLE `client_master`
-  ADD COLUMN IF NOT EXISTS `credit_limit`    DECIMAL(15,2) DEFAULT 0.00 AFTER `gstin`,
-  ADD COLUMN IF NOT EXISTS `payment_terms`   INT           DEFAULT 30   AFTER `credit_limit`,
-  ADD COLUMN IF NOT EXISTS `updated_at`      TIMESTAMP NULL ON UPDATE CURRENT_TIMESTAMP;
+  ADD COLUMN IF NOT EXISTS `credit_limit`  DECIMAL(15,2) DEFAULT 0.00,
+  ADD COLUMN IF NOT EXISTS `payment_terms` INT           DEFAULT 30,
+  ADD COLUMN IF NOT EXISTS `updated_at`    TIMESTAMP NULL ON UPDATE CURRENT_TIMESTAMP;
 
--- A4. product_master — add rental pricing
+-- A4. product_master — add rental pricing (appended at end, safe for any column order)
 ALTER TABLE `product_master`
-  ADD COLUMN IF NOT EXISTS `rental_price`    DECIMAL(15,2) DEFAULT 0.00 AFTER `model`,
-  ADD COLUMN IF NOT EXISTS `security_deposit` DECIMAL(15,2) DEFAULT 0.00 AFTER `rental_price`,
-  ADD COLUMN IF NOT EXISTS `is_rentable`     TINYINT(1)    DEFAULT 1    AFTER `security_deposit`;
+  ADD COLUMN IF NOT EXISTS `rental_price`     DECIMAL(15,2) DEFAULT 0.00,
+  ADD COLUMN IF NOT EXISTS `security_deposit` DECIMAL(15,2) DEFAULT 0.00,
+  ADD COLUMN IF NOT EXISTS `is_rentable`      TINYINT(1)    DEFAULT 1;
 
 -- A5. quot_master — link to lead, client, rental plan
 ALTER TABLE `quot_master`
-  ADD COLUMN IF NOT EXISTS `lead_id`         INT UNSIGNED DEFAULT NULL AFTER `id`,
-  ADD COLUMN IF NOT EXISTS `client_id`       INT UNSIGNED DEFAULT NULL AFTER `lead_id`,
-  ADD COLUMN IF NOT EXISTS `rental_plan_id`  INT UNSIGNED DEFAULT NULL AFTER `client_id`,
-  ADD COLUMN IF NOT EXISTS `validity_days`   INT          DEFAULT 30   AFTER `net_amount`,
-  ADD COLUMN IF NOT EXISTS `created_by`      INT UNSIGNED DEFAULT NULL AFTER `created_at`,
-  ADD COLUMN IF NOT EXISTS `updated_at`      TIMESTAMP NULL ON UPDATE CURRENT_TIMESTAMP;
+  ADD COLUMN IF NOT EXISTS `lead_id`        INT UNSIGNED DEFAULT NULL,
+  ADD COLUMN IF NOT EXISTS `client_id`      INT UNSIGNED DEFAULT NULL,
+  ADD COLUMN IF NOT EXISTS `rental_plan_id` INT UNSIGNED DEFAULT NULL,
+  ADD COLUMN IF NOT EXISTS `validity_days`  INT          DEFAULT 30,
+  ADD COLUMN IF NOT EXISTS `created_by`     INT UNSIGNED DEFAULT NULL,
+  ADD COLUMN IF NOT EXISTS `updated_at`     TIMESTAMP NULL ON UPDATE CURRENT_TIMESTAMP;
 
 -- A6. goods_receipt_note — link to vendor_master and location
 ALTER TABLE `goods_receipt_note`
-  ADD COLUMN IF NOT EXISTS `vendor_id`       INT          DEFAULT NULL AFTER `grn_no`,
-  ADD COLUMN IF NOT EXISTS `location_id`     INT UNSIGNED DEFAULT NULL AFTER `warehouse_name`,
-  ADD COLUMN IF NOT EXISTS `created_by`      INT UNSIGNED DEFAULT NULL AFTER `created_at`;
+  ADD COLUMN IF NOT EXISTS `vendor_id`   INT          DEFAULT NULL,
+  ADD COLUMN IF NOT EXISTS `location_id` INT UNSIGNED DEFAULT NULL,
+  ADD COLUMN IF NOT EXISTS `created_by`  INT UNSIGNED DEFAULT NULL;
 
 -- A7. delivery_challan — link to rental order
 ALTER TABLE `delivery_challan`
-  ADD COLUMN IF NOT EXISTS `rental_order_id` INT UNSIGNED DEFAULT NULL AFTER `dc_no`,
-  ADD COLUMN IF NOT EXISTS `created_by`      INT UNSIGNED DEFAULT NULL AFTER `created_at`;
+  ADD COLUMN IF NOT EXISTS `rental_order_id` INT UNSIGNED DEFAULT NULL,
+  ADD COLUMN IF NOT EXISTS `created_by`      INT UNSIGNED DEFAULT NULL;
 
 -- ─────────────────────────────────────────────────────────────
 -- SECTION B: NEW TABLES — Organization Hierarchy

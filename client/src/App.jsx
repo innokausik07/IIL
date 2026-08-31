@@ -54,6 +54,11 @@ import LeadMaster from './pages/LeadMaster';
 import QuotationMaster from './pages/QuotationMaster';
 import RfpMaster from './pages/RfpMaster';
 
+// ── Phase 1 ERP: Asset, Rental & Org Masters ──────────────────────────────────
+import AssetMaster from './pages/AssetMaster';
+import RentalPlanMaster from './pages/RentalPlanMaster';
+import OrgMasters from './pages/OrgMasters';
+
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
   if (loading) return <div className="page-loading"><div className="spinner"></div></div>;
@@ -102,6 +107,17 @@ function AppRoutes() {
       <Route path="/crm/lead-master"      element={<ProtectedRoute><LeadMaster /></ProtectedRoute>} />
       <Route path="/crm/quotation-master" element={<ProtectedRoute><QuotationMaster /></ProtectedRoute>} />
       <Route path="/crm/rfp-master"       element={<ProtectedRoute><RfpMaster /></ProtectedRoute>} />
+
+      {/* ── Phase 1 ERP: Asset Management ─────────────────────────────────── */}
+      <Route path="/assets/asset-master"    element={<ProtectedRoute><AssetMaster /></ProtectedRoute>} />
+
+      {/* ── Phase 1 ERP: Rental Management ───────────────────────────────── */}
+      <Route path="/rental/rental-plans"    element={<ProtectedRoute><RentalPlanMaster /></ProtectedRoute>} />
+
+      {/* ── Phase 1 ERP: Organization Masters ────────────────────────────── */}
+      <Route path="/org/org-levels"         element={<ProtectedRoute><OrgMasters /></ProtectedRoute>} />
+      <Route path="/org/org-units"          element={<ProtectedRoute><OrgMasters /></ProtectedRoute>} />
+      <Route path="/org/location-types"     element={<ProtectedRoute><OrgMasters /></ProtectedRoute>} />
 
       {/* Function & Sub-Function Masters */}
       <Route path="/admin/function-master"    element={<ProtectedRoute><FunctionMaster /></ProtectedRoute>} />

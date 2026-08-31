@@ -639,4 +639,17 @@ INSERT IGNORE INTO `sub_function_master` (`function_id`, `sub_name`, `sub_seq`, 
 -- Organization
 ('FN21', 'Org Levels',           1, '/org/org-levels',            'Org',   'fa-sitemap',   'Y', '2'),
 ('FN21', 'Org Units',            2, '/org/org-units',             'Org',   'fa-building',  'Y', '2'),
-('FN21', 'Location Types',       3, '/org/location-types',        'Org',   'fa-map-marker','Y', '2');
+('FN21', 'Location Types',       3, '/org/location-types',        'Org',   'fa-map-marker','Y', '2'),
+-- Reports
+('FN22', 'Executive Analytics',  1, '/reports/analytics',         'Reports','fa-bar-chart','Y', '2');
+
+-- ─────────────────────────────────────────────────────────────
+-- SECTION M: Grant Access in access_function for all sub-functions
+-- Automatically grants permissions to all active users/employees
+-- ─────────────────────────────────────────────────────────────
+INSERT IGNORE INTO `access_function` (`user_id`, `function_id`, `sub_function_id`, `status`)
+SELECT u.emp_id, sf.function_id, sf.id, '1'
+FROM `users` u
+CROSS JOIN `sub_function_master` sf
+WHERE u.status = '1' AND sf.status = 'Y' AND u.emp_id IS NOT NULL AND u.emp_id != '';
+

@@ -24,12 +24,14 @@ export const AuthProvider = ({ children }) => {
 
   const login = (token, userData) => {
     localStorage.setItem('erp_token', token);
+    localStorage.setItem('token', token);
     localStorage.setItem('erp_user', JSON.stringify(userData));
     setUser(userData);
   };
 
   const logout = () => {
     localStorage.removeItem('erp_token');
+    localStorage.removeItem('token');
     localStorage.removeItem('erp_user');
     setUser(null);
   };

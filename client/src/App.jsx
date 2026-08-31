@@ -59,6 +59,12 @@ import AssetMaster from './pages/AssetMaster';
 import RentalPlanMaster from './pages/RentalPlanMaster';
 import OrgMasters from './pages/OrgMasters';
 
+// ── Phase 2 ERP: Rental Orders, Invoices ───────────────────────────────
+import RentalOrders from './pages/RentalOrders';
+import RentalOrderForm from './pages/RentalOrderForm';
+import RentalOrderDetail from './pages/RentalOrderDetail';
+import InvoiceMaster from './pages/InvoiceMaster';
+
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
   if (loading) return <div className="page-loading"><div className="spinner"></div></div>;
@@ -111,8 +117,17 @@ function AppRoutes() {
       {/* ── Phase 1 ERP: Asset Management ─────────────────────────────────── */}
       <Route path="/assets/asset-master"    element={<ProtectedRoute><AssetMaster /></ProtectedRoute>} />
 
-      {/* ── Phase 1 ERP: Rental Management ───────────────────────────────── */}
+      {/* ── Phase 1 ERP: Rental Plan Master ───────────────────────────────── */}
       <Route path="/rental/rental-plans"    element={<ProtectedRoute><RentalPlanMaster /></ProtectedRoute>} />
+
+      {/* ── Phase 2 ERP: Rental Orders ─────────────────────────────────────── */}
+      <Route path="/rental/rental-orders"          element={<ProtectedRoute><RentalOrders /></ProtectedRoute>} />
+      <Route path="/rental/rental-orders/new"       element={<ProtectedRoute><RentalOrderForm /></ProtectedRoute>} />
+      <Route path="/rental/rental-orders/edit/:id"  element={<ProtectedRoute><RentalOrderForm /></ProtectedRoute>} />
+      <Route path="/rental/rental-orders/:id"       element={<ProtectedRoute><RentalOrderDetail /></ProtectedRoute>} />
+
+      {/* ── Phase 2 ERP: Finance & Invoices ───────────────────────────────── */}
+      <Route path="/finance/invoices"               element={<ProtectedRoute><InvoiceMaster /></ProtectedRoute>} />
 
       {/* ── Phase 1 ERP: Organization Masters ────────────────────────────── */}
       <Route path="/org/org-levels"         element={<ProtectedRoute><OrgMasters /></ProtectedRoute>} />

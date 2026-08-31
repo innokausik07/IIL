@@ -36,6 +36,8 @@ app.use('/api/moved-sheet',   require('./routes/movedSheet.routes'));
 app.use('/api/cross-audit',   require('./routes/crossAudit.routes'));
 app.use('/api/store-stock',   require('./routes/storeStock.routes'));
 app.use('/api/sync',          require('./routes/sync.routes'));      // Called by Google Apps Script
+app.use('/api/rental',        require('./routes/rental.routes'));   // Phase 2: Rental Orders & Allocation
+app.use('/api/finance',       require('./routes/finance.routes'));  // Phase 2: Invoices & Payments
 
 // ── Health check ──────────────────────────────────────────────────────────────
 app.get('/api/health', (req, res) => {

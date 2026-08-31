@@ -647,8 +647,12 @@ INSERT IGNORE INTO `sub_function_master` (`function_id`, `sub_name`, `sub_seq`, 
 -- SECTION M: Grant Access in access_function for all sub-functions
 -- Automatically grants permissions to all active users/employees
 -- ─────────────────────────────────────────────────────────────
-INSERT IGNORE INTO `access_function` (`user_id`, `function_id`, `sub_function_id`, `status`)
-SELECT u.emp_id, sf.function_id, sf.id, '1'
+ALTER TABLE `access_function`
+  ADD COLUMN IF NOT EXISTS `emp_id`          VARCHAR(100) NULL,
+  ADD COLUMN IF NOT EXISTS `sub_function_id` VARCHAR(50)  NULL;
+
+INSERT IGNORE INTO `access_function` (`emp_id`, `function_id`, `sub_function_id`, `status`)
+SELECT u.emp_id, sf.function_id, sf.id, 'Y'
 FROM `users` u
 CROSS JOIN `sub_function_master` sf
 WHERE u.status = '1' AND sf.status = 'Y' AND u.emp_id IS NOT NULL AND u.emp_id != '';

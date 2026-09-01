@@ -144,6 +144,103 @@ export default function UserRights() {
       </div>
 
       <div className="page-body">
+        {/* ── Quick Role / Type Presets Bar ─────────────────────────── */}
+        <div className="card" style={{ marginBottom: '14px', background: '#f8fafc', border: '1px solid #e2e8f0' }}>
+          <div className="card-body" style={{ padding: '12px 16px' }}>
+            <div style={{ fontSize: '11.5px', fontWeight: '700', color: '#475569', textTransform: 'uppercase', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              ⚡ Quick Role Presets (1-Click Apply to Form)
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                style={{ fontSize: '11.5px', padding: '4px 10px', background: '#fff' }}
+                onClick={() => handleSelectAll(true)}
+              >
+                🛡️ Super Admin (Full)
+              </button>
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                style={{ fontSize: '11.5px', padding: '4px 10px', background: '#fff' }}
+                onClick={() => {
+                  const techNames = ['Service Tickets', 'Asset Master', 'Support & Query Tickets', 'Customer Service Desk', 'Repair & Breakdown Tickets'];
+                  const matched = subFunctions.filter(s => techNames.some(tn => s.sub_name.toLowerCase().includes(tn.toLowerCase()))).map(s => s.id);
+                  setSelectedSubIds(new Set(matched));
+                  toast.success('Applied Technician preset!');
+                }}
+              >
+                🔧 Technician / Support
+              </button>
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                style={{ fontSize: '11.5px', padding: '4px 10px', background: '#fff' }}
+                onClick={() => {
+                  const salesNames = ['Lead Management', 'Quotation Management', 'RFP / Tender Management', 'Client Master', 'Rental Orders', 'New Rental Order', 'Rental Plans & Pricing', 'Sales Pipeline & Leads'];
+                  const matched = subFunctions.filter(s => salesNames.some(tn => s.sub_name.toLowerCase().includes(tn.toLowerCase()))).map(s => s.id);
+                  setSelectedSubIds(new Set(matched));
+                  toast.success('Applied Sales & CRM preset!');
+                }}
+              >
+                💼 Sales & CRM
+              </button>
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                style={{ fontSize: '11.5px', padding: '4px 10px', background: '#fff' }}
+                onClick={() => {
+                  const finNames = ['Invoice Management', 'Invoice & Payment Tracker', 'Executive Analytics', 'Client Master', 'Tax / HSN Master'];
+                  const matched = subFunctions.filter(s => finNames.some(tn => s.sub_name.toLowerCase().includes(tn.toLowerCase()))).map(s => s.id);
+                  setSelectedSubIds(new Set(matched));
+                  toast.success('Applied Finance & Accounts preset!');
+                }}
+              >
+                💰 Finance & Accounts
+              </button>
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                style={{ fontSize: '11.5px', padding: '4px 10px', background: '#fff' }}
+                onClick={() => {
+                  const whNames = ['Asset Master', 'Store Stock Sheet', 'GRN Inward Goods', 'GRN Inward Receipt', 'Delivery Challan (DC)', 'Return DC', 'Product / Item Master', 'Category Master', 'Sub-Category Master', 'BOM Master'];
+                  const matched = subFunctions.filter(s => whNames.some(tn => s.sub_name.toLowerCase().includes(tn.toLowerCase()))).map(s => s.id);
+                  setSelectedSubIds(new Set(matched));
+                  toast.success('Applied Warehouse & Inventory preset!');
+                }}
+              >
+                📦 Warehouse & Inventory
+              </button>
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                style={{ fontSize: '11.5px', padding: '4px 10px', background: '#fff' }}
+                onClick={() => {
+                  const logNames = ['Freight Calculator', 'Delivery Challan (DC)', 'GRN Inward Receipt', 'Return DC', 'Shipment Tracking', 'Courier Rate Cards', 'Courier Master'];
+                  const matched = subFunctions.filter(s => logNames.some(tn => s.sub_name.toLowerCase().includes(tn.toLowerCase()))).map(s => s.id);
+                  setSelectedSubIds(new Set(matched));
+                  toast.success('Applied Logistics preset!');
+                }}
+              >
+                🚚 Logistics & Dispatch
+              </button>
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                style={{ fontSize: '11.5px', padding: '4px 10px', background: '#fff' }}
+                onClick={() => {
+                  const opsNames = ['CCTV Audit Sheet', 'Moved Data Sheet', 'Cross Audit Sheet', 'Store Stock Sheet'];
+                  const matched = subFunctions.filter(s => opsNames.some(tn => s.sub_name.toLowerCase().includes(tn.toLowerCase()))).map(s => s.id);
+                  setSelectedSubIds(new Set(matched));
+                  toast.success('Applied Operations & Audit preset!');
+                }}
+              >
+                📊 Operations & Audit
+              </button>
+            </div>
+          </div>
+        </div>
+
         {/* ── Control Bar ────────────────────────────────────────────── */}
         <div className="card" style={{ marginBottom: '18px' }}>
           <div className="card-body" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
@@ -153,7 +250,7 @@ export default function UserRights() {
                 className="btn btn-primary btn-sm"
                 onClick={() => handleSelectAll(true)}
               >
-                <CheckSquare size={13} /> Select All Modules
+                <CheckSquare size={13} /> Select All
               </button>
               <button
                 type="button"
@@ -176,6 +273,7 @@ export default function UserRights() {
             </div>
           </div>
         </div>
+
 
         {/* ── Module Groups & Sub-Functions (Devsite Layout) ─────────── */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>

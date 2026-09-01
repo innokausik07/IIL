@@ -140,11 +140,20 @@ export default function UserMaster() {
           <button id="btn-refresh" className="btn btn-secondary" onClick={fetchUsers}>
             <RefreshCw size={14} className={fetching ? 'spin' : ''} /> Refresh
           </button>
+          <button
+            className="btn btn-secondary"
+            onClick={() => navigate('/admin/usertype-rights')}
+            style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+            title="Configure default module rights by User Type"
+          >
+            <Shield size={14} color="#6366f1" /> User-Type Rights
+          </button>
           <button className="btn btn-primary" onClick={() => navigate('/admin/user-master/add')}>
             <UserPlus size={14} /> Add User
           </button>
         </div>
       </div>
+
 
       <div className="page-body">
         {/* ── 2. Filter Bar (CCTV Audit Style) ───────────────────────── */}

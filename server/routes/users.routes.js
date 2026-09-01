@@ -6,13 +6,21 @@ const {
   updateUser,
   deleteUser,
   getUserRights,
-  updateUserRights
+  updateUserRights,
+  getUserTypeRights,
+  saveUserTypeRights,
+  getSmartPresets
 } = require('../controllers/users.controller');
 
 // GET /api/users/ping
 router.get('/ping', (req, res) => {
   res.json({ status: 'ok', message: 'users route is working' });
 });
+
+// User-Type Rights Management Endpoints
+router.get('/roles/smart-presets', getSmartPresets);
+router.get('/usertypes/rights/:utypeId', getUserTypeRights);
+router.post('/usertypes/rights/:utypeId', saveUserTypeRights);
 
 // GET /api/users - List all users
 router.get('/', getUsers);
@@ -33,3 +41,4 @@ router.put('/:id', updateUser);
 router.delete('/:id', deleteUser);
 
 module.exports = router;
+

@@ -350,11 +350,250 @@ const updateUserRights = async (req, res) => {
   }
 };
 
+// ── User-Type (utype) Default Rights Management ───────────────────────────────
+
+// Built-in smart templates for standard corporate user types
+const SMART_PRESETS = {
+  ADMIN: {
+    name: 'Super Admin (Full Access)',
+    keywords: ['admin', 'super', 'director', 'ceo'],
+    description: 'Full access to all 11 modules and 41 sub-modules'
+  },
+  TECHNICIAN: {
+    name: 'Technician / Service Engineer',
+    keywords: ['tech', 'repair', 'engineer', 'service', 'asp'],
+    description: 'Service Breakdown Tickets, Physical Fleet Assets, and Query Tickets',
+    subNames: ['Service Tickets', 'Asset Master', 'Support & Query Tickets', 'Customer Service Desk', 'Repair & Breakdown Tickets']
+  },
+  SALES: {
+    name: 'Sales & CRM Executive',
+    keywords: ['sale', 'crm', 'marketing', 'bd', 'executive'],
+    description: 'Leads, Quotations, RFPs, Client Master, Rental Plans & Rental Orders',
+    subNames: ['Lead Management', 'Quotation Management', 'RFP / Tender Management', 'Client Master', 'Rental Orders', 'New Rental Order', 'Rental Plans & Pricing', 'Sales Pipeline & Leads']
+  },
+  FINANCE: {
+    name: 'Finance & Accounts Manager',
+    keywords: ['finance', 'account', 'bill', 'audit', 'tax'],
+    description: 'Invoice Management, Payment Tracker, Executive Analytics, and Client Master',
+    subNames: ['Invoice Management', 'Invoice & Payment Tracker', 'Executive Analytics', 'Client Master', 'Tax / HSN Master']
+  },
+  WAREHOUSE: {
+    name: 'Warehouse & Inventory Manager',
+    keywords: ['warehouse', 'store', 'inventory', 'stock'],
+    description: 'Physical Asset Master, Store Stock Sheet, GRN Inward Receipt, Delivery Challan, Return DC, and Product Catalog',
+    subNames: ['Asset Master', 'Asset Master (Fleet)', 'Store Stock Sheet', 'GRN Inward Goods', 'GRN Inward Receipt', 'Delivery Challan (DC)', 'Return DC', 'Return Delivery Challan', 'Product / Item Master', 'Category Master', 'Sub-Category Master', 'BOM Master']
+  },
+  LOGISTICS: {
+    name: 'Logistics & Dispatch Executive',
+    keywords: ['logistic', 'dispatch', 'transport', 'courier', 'driver', 'delivery'],
+    description: 'Freight Calculator, Delivery Challan, Return DC, Shipment Tracking, and Courier Rate Cards',
+    subNames: ['Freight Calculator', 'Delivery Challan (DC)', 'GRN Inward Receipt', 'Return DC', 'Shipment Tracking', 'Courier Rate Cards', 'Courier Master']
+  },
+  AUDIT: {
+    name: 'Operations & Exam Audit',
+    keywords: ['audit', 'ops', 'cctv', 'exam', 'field'],
+    description: 'CCTV Audit Sheet, Moved Data Sheet, Cross Audit, and Store Stock Sheet',
+    subNames: ['CCTV Audit Sheet', 'Moved Data Sheet', 'Cross Audit Sheet', 'Store Stock Sheet']
+  }
+};
+
+// GET /api/users/usertypes/rights/:utypeId
+const getUserTypeRights = async (req, res) => {
+  try {
+    const { utypeId } = req.params;
+
+    // Ensure usertype_rights table exists
+    try {
+      await db.execute(`
+        CREATE TABLE IF NOT EXISTS usertype_rights (
+          id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+          utype_id VARCHAR(50) NOT NULL,
+          function_id VARCHAR(50) DEFAULT NULL,
+          sub_function_id INT NOT NULL,
+          status VARCHAR(5) DEFAULT '1',
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          INDEX idx_utype (utype_id)
+        )
+      `);
+    } catch (e) {}
+
+    // Get user type info
+    const [types] = await db.execute('SELECT * FROM usertype_master WHERE id = ? OR utype = ?', [utypeId, utypeId]);
+    const userType = types[0] || { id: utypeId, typename: `User Type ${utypeId}`, utype: utypeId };
+
+    // Fetch all functions and sub-functions
+    const [functions] = await db.execute(
+      "SELECT id, function_id, function_name, descrip, tab FROM function_master WHERE status = 'Active' ORDER BY tab ASC, id ASC"
+    );
+    const [subFunctions] = await db.execute(
+      "SELECT id, function_id, sub_name, sub_seq, file_name, tab, utype FROM sub_function_master WHERE status = 'Y' ORDER BY sub_seq ASC, id ASC"
+    );
+
+    // Fetch assigned rights from usertype_rights
+    let [rights] = await db.execute(
+      "SELECT sub_function_id FROM usertype_rights WHERE (utype_id = ? OR utype_id = ?) AND status = '1'",
+      [String(utypeId), String(userType.utype || utypeId)]
+    );
+    let assignedIds = rights.map(r => parseInt(r.sub_function_id)).filter(Boolean);
+
+    // If no rights saved yet, check if there is a smart matching preset
+    if (assignedIds.length === 0) {
+      const typeNameLower = (userType.typename || '').toLowerCase();
+      for (const [key, preset] of Object.entries(SMART_PRESETS)) {
+        if (preset.keywords.some(k => typeNameLower.includes(k))) {
+          if (key === 'ADMIN') {
+            assignedIds = subFunctions.map(s => s.id);
+          } else if (preset.subNames) {
+            assignedIds = subFunctions
+              .filter(s => preset.subNames.some(sn => s.sub_name.toLowerCase().includes(sn.toLowerCase())))
+              .map(s => s.id);
+          }
+          break;
+        }
+      }
+    }
+
+    return res.json({
+      status: 'success',
+      data: {
+        userType,
+        functions,
+        subFunctions,
+        assignedIds,
+        smartPresets: Object.keys(SMART_PRESETS).map(k => ({
+          key: k,
+          name: SMART_PRESETS[k].name,
+          description: SMART_PRESETS[k].description
+        }))
+      }
+    });
+  } catch (err) {
+    console.error('Get User Type Rights Error:', err);
+    return res.status(500).json({ status: 'error', message: err.sqlMessage || err.message });
+  }
+};
+
+// POST /api/users/usertypes/rights/:utypeId - Save default rights for this User Type
+const saveUserTypeRights = async (req, res) => {
+  const conn = await db.getConnection();
+  try {
+    await conn.beginTransaction();
+    const { utypeId } = req.params;
+    const { subFunctionIds, syncToUsers = false } = req.body;
+
+    if (!Array.isArray(subFunctionIds)) {
+      return res.status(400).json({ status: 'error', message: 'subFunctionIds must be an array' });
+    }
+
+    // Get user type details
+    const [types] = await conn.execute('SELECT * FROM usertype_master WHERE id = ? OR utype = ?', [utypeId, utypeId]);
+    const utypeVal = types[0]?.utype || types[0]?.id || utypeId;
+
+    // Delete existing records for this utype
+    await conn.execute('DELETE FROM usertype_rights WHERE utype_id = ? OR utype_id = ?', [String(utypeId), String(utypeVal)]);
+
+    // Map sub-functions to parent function_id
+    const subMap = {};
+    if (subFunctionIds.length > 0) {
+      const placeholders = subFunctionIds.map(() => '?').join(',');
+      const [subs] = await conn.execute(
+        `SELECT id, function_id FROM sub_function_master WHERE id IN (${placeholders})`,
+        subFunctionIds
+      );
+      subs.forEach(s => { subMap[s.id] = s.function_id; });
+
+      // Insert new default rights
+      for (const subId of subFunctionIds) {
+        const fnId = subMap[subId] || null;
+        await conn.execute(
+          'INSERT INTO usertype_rights (utype_id, function_id, sub_function_id, status) VALUES (?, ?, ?, "1")',
+          [String(utypeId), fnId, subId]
+        );
+      }
+    }
+
+    let syncedUsersCount = 0;
+    // If syncToUsers is true, automatically update access_function for all users of this utype!
+    if (syncToUsers) {
+      const [users] = await conn.execute(
+        'SELECT id, emp_id FROM users WHERE (utype = ? OR utype = ?) AND status = "1"',
+        [String(utypeId), String(utypeVal)]
+      );
+
+      for (const u of users) {
+        const targetEmpId = u.emp_id || String(u.id);
+        await conn.execute('DELETE FROM access_function WHERE emp_id = ?', [targetEmpId]);
+        
+        for (const subId of subFunctionIds) {
+          const fnId = subMap[subId] || '';
+          await conn.execute(
+            'INSERT INTO access_function (emp_id, function_id, sub_function_id, status) VALUES (?, ?, ?, "Y")',
+            [targetEmpId, String(fnId), String(subId)]
+          );
+        }
+        syncedUsersCount++;
+      }
+    }
+
+    await conn.commit();
+    return res.json({
+      status: 'success',
+      message: syncToUsers
+        ? `Rights saved and automatically synced to all ${syncedUsersCount} active users of this User Type!`
+        : `Default rights saved for User Type (${subFunctionIds.length} sub-modules selected)!`,
+      syncedUsersCount
+    });
+  } catch (err) {
+    await conn.rollback();
+    console.error('Save User Type Rights Error:', err);
+    return res.status(500).json({ status: 'error', message: err.sqlMessage || err.message });
+  } finally {
+    conn.release();
+  }
+};
+
+// GET /api/users/roles/smart-presets
+const getSmartPresets = async (req, res) => {
+  try {
+    const [subFunctions] = await db.execute(
+      "SELECT id, function_id, sub_name FROM sub_function_master WHERE status = 'Y'"
+    );
+
+    const presetsWithIds = {};
+    for (const [key, preset] of Object.entries(SMART_PRESETS)) {
+      if (key === 'ADMIN') {
+        presetsWithIds[key] = {
+          name: preset.name,
+          description: preset.description,
+          subFunctionIds: subFunctions.map(s => s.id)
+        };
+      } else {
+        const matched = subFunctions.filter(s =>
+          preset.subNames.some(sn => s.sub_name.toLowerCase().includes(sn.toLowerCase()))
+        );
+        presetsWithIds[key] = {
+          name: preset.name,
+          description: preset.description,
+          subFunctionIds: matched.map(s => s.id)
+        };
+      }
+    }
+
+    return res.json({ status: 'success', data: presetsWithIds });
+  } catch (e) {
+    return res.status(500).json({ status: 'error', message: e.message });
+  }
+};
+
 module.exports = {
   getUsers,
   createUser,
   updateUser,
   deleteUser,
   getUserRights,
-  updateUserRights
+  updateUserRights,
+  getUserTypeRights,
+  saveUserTypeRights,
+  getSmartPresets
 };
+

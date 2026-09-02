@@ -64,6 +64,7 @@ import PrintRentalAgreement from './pages/PrintRentalAgreement';
 import PrintInvoice from './pages/PrintInvoice';
 import PrintDeliveryChallan from './pages/PrintDeliveryChallan';
 import PrintAssetBarcode from './pages/PrintAssetBarcode';
+import PrintReturnDc from './pages/PrintReturnDc';
 import OrgMasters from './pages/OrgMasters';
 
 // ── Phase 2 ERP: Rental Orders, Invoices ───────────────────────────────
@@ -108,6 +109,7 @@ function AppRoutes() {
       <Route path="/logistics/delivery-challan/:id/print" element={<ProtectedRoute><PrintDeliveryChallan /></ProtectedRoute>} />
       <Route path="/logistics/grn-receipt"             element={<ProtectedRoute><GrnMaster /></ProtectedRoute>} />
       <Route path="/logistics/return-dc"               element={<ProtectedRoute><ReturnDcMaster /></ProtectedRoute>} />
+      <Route path="/logistics/return-dc/:id/print"     element={<ProtectedRoute><PrintReturnDc /></ProtectedRoute>} />
       <Route path="/logistics/dispatch-tracking"       element={<ProtectedRoute><ShipmentTracking /></ProtectedRoute>} />
       <Route path="/logistics/courier-rates"           element={<ProtectedRoute><CourierRateMaster /></ProtectedRoute>} />
 

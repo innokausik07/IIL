@@ -60,6 +60,7 @@ import AssetMaster from './pages/AssetMaster';
 import RentalPlanMaster from './pages/RentalPlanMaster';
 import PurchaseOrders from './pages/PurchaseOrders';
 import PurchaseOrderForm from './pages/PurchaseOrderForm';
+import PrintPurchaseOrder from './pages/PrintPurchaseOrder';
 import PrintRentalAgreement from './pages/PrintRentalAgreement';
 import PrintInvoice from './pages/PrintInvoice';
 import PrintDeliveryChallan from './pages/PrintDeliveryChallan';
@@ -149,8 +150,9 @@ function AppRoutes() {
       <Route path="/finance/invoices/:id/print"      element={<ProtectedRoute><PrintInvoice /></ProtectedRoute>} />
 
       {/* ── Phase 4 ERP: Procurement & Purchase Orders ────────────────────── */}
-      <Route path="/procurement/purchase-orders"     element={<ProtectedRoute><PurchaseOrders /></ProtectedRoute>} />
-      <Route path="/procurement/purchase-orders/new" element={<ProtectedRoute><PurchaseOrderForm /></ProtectedRoute>} />
+      <Route path="/procurement/purchase-orders"          element={<ProtectedRoute><PurchaseOrders /></ProtectedRoute>} />
+      <Route path="/procurement/purchase-orders/new"      element={<ProtectedRoute><PurchaseOrderForm /></ProtectedRoute>} />
+      <Route path="/procurement/purchase-orders/:id/print" element={<ProtectedRoute><PrintPurchaseOrder /></ProtectedRoute>} />
 
       {/* ── Phase 3 ERP: Service & Maintenance ────────────────────────────── */}
       <Route path="/maintenance/tickets"            element={<ProtectedRoute><ServiceTickets /></ProtectedRoute>} />

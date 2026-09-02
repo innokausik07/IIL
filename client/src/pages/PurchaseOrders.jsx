@@ -217,6 +217,14 @@ export default function PurchaseOrders() {
                     </td>
                     <td>{getStatusBadge(po.status)}</td>
                     <td style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>
+                      <button
+                        onClick={() => navigate(`/procurement/purchase-orders/${po.id}/print`)}
+                        className="erp-btn-ghost erp-btn-sm"
+                        style={{ color: '#4f46e5', marginRight: '4px' }}
+                        title="Print Purchase Order"
+                      >
+                        <FileText size={13} /> Print
+                      </button>
                       {po.status === 'Draft' && (
                         <button
                           onClick={() => handleApprove(po.id, po.po_no)}
@@ -238,6 +246,7 @@ export default function PurchaseOrders() {
                         </button>
                       )}
                     </td>
+
                   </tr>
                 ))}
               </tbody>

@@ -66,6 +66,13 @@ export default function Home() {
               <FileText size={15} /> New Rental Order <ArrowRight size={14} />
             </button>
             <button
+              onClick={() => navigate('/procurement/purchase-orders/new')}
+              className="btn btn-secondary"
+              style={{ padding: '9px 16px', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(255,255,255,0.1)', color: '#fff', border: '1px solid rgba(255,255,255,0.2)' }}
+            >
+              <Package size={15} /> + Create PO
+            </button>
+            <button
               onClick={() => navigate('/assets/asset-master')}
               className="btn btn-secondary"
               style={{ padding: '9px 16px', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px' }}
@@ -129,22 +136,25 @@ export default function Home() {
       {/* ── ERP Core Modules Navigation ──────────────────────────────── */}
       <div className="card" style={{ padding: '20px 24px' }}>
         <h3 style={{ fontSize: '13.5px', fontWeight: '700', color: '#1e293b', marginBottom: '14px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-          ERP Modules & Operations Hub
+          ERP Operations & Command Center
         </h3>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))', gap: '12px' }}>
           {[
-            { title: 'Asset Master', desc: 'Hardware fleet, serial numbers & status', path: '/assets/asset-master', icon: <Laptop color="#6366f1" size={18} /> },
-            { title: 'Rental Orders', desc: 'Order lifecycle, asset allocation & returns', path: '/rental/rental-orders', icon: <FileText color="#3b82f6" size={18} /> },
-            { title: 'Rental Plans', desc: 'Configure monthly rental pricing & deposit', path: '/rental/rental-plans', icon: <Layers color="#8b5cf6" size={18} /> },
-            { title: 'Invoice & Billing', desc: 'Recurring invoices, GST & payments', path: '/finance/invoices', icon: <IndianRupee color="#10b981" size={18} /> },
-            { title: 'Service & Maintenance', desc: 'Breakdown tickets & repair logs', path: '/maintenance/tickets', icon: <Wrench color="#ec4899" size={18} /> },
-            { title: 'Executive Reports', desc: 'Fleet occupancy, MRR & aging matrix', path: '/reports/analytics', icon: <BarChart3 color="#f59e0b" size={18} /> },
-            { title: 'Client Master', desc: 'Client accounts, credit limits & GSTIN', path: '/crm/client-master', icon: <Users color="#06b6d4" size={18} /> },
-            { title: 'Org & Location Masters', desc: 'Regions, warehouses & branch hubs', path: '/org/org-levels', icon: <Building2 color="#64748b" size={18} /> },
-            { title: 'Logistics Freight', desc: 'Shipping calculator & challan tracking', path: '/logistics/calculator', icon: <Truck color="#14b8a6" size={18} /> },
-            { title: 'CCTV Audit Sheet', desc: 'Exam centers CCTV operational audit', path: '/audit/cctv-audit', icon: <FileSpreadsheet color="#3b82f6" size={18} /> },
+            { title: 'Asset Fleet Master', desc: 'Hardware fleet, serial numbers & barcode tagging', path: '/assets/asset-master', icon: <Laptop color="#6366f1" size={18} /> },
+            { title: 'Rental Orders & Contracts', desc: 'Order lifecycle, serial allocation & printable agreement', path: '/rental/rental-orders', icon: <FileText color="#3b82f6" size={18} /> },
+            { title: 'Procurement & POs', desc: 'Vendor orders, line calculations & approval flow', path: '/procurement/purchase-orders', icon: <Package color="#8b5cf6" size={18} /> },
+            { title: 'Invoice & GST Billing', desc: 'Tax Invoices, CGST/SGST breakdown & NEFT receipts', path: '/finance/invoices', icon: <IndianRupee color="#10b981" size={18} /> },
+            { title: 'Service & Maintenance', desc: 'Breakdown tickets, engineer assignment & repair logs', path: '/maintenance/tickets', icon: <Wrench color="#ec4899" size={18} /> },
+            { title: 'Executive Analytics', desc: 'Fleet occupancy, MRR & receivables aging matrix', path: '/reports/analytics', icon: <BarChart3 color="#f59e0b" size={18} /> },
+            { title: 'Client Master', desc: 'Client accounts, credit limits & GSTIN mapping', path: '/crm/client-master', icon: <Users color="#06b6d4" size={18} /> },
+            { title: 'Plant & Location Tree', desc: 'Head office, mother/child warehouses & repair centers', path: '/admin/location-master', icon: <Building2 color="#64748b" size={18} /> },
+            { title: 'User-Type Rights', desc: '1-Click permission sync across roles and designations', path: '/admin/usertype-rights', icon: <ShieldCheck color="#2563eb" size={18} /> },
+            { title: 'Delivery Challan & Gate Pass', desc: 'Shipping logistics, vehicle gate pass & AWB tracking', path: '/logistics/delivery-challan', icon: <Truck color="#14b8a6" size={18} /> },
+            { title: 'Rental Plans & Pricing', desc: 'Tenure pricing, deposit rules & asset categories', path: '/rental/rental-plans', icon: <Layers color="#8b5cf6" size={18} /> },
+            { title: 'CCTV Audit Sheet', desc: 'Exam center CCTV surveillance and operational audit', path: '/audit/cctv-audit', icon: <FileSpreadsheet color="#3b82f6" size={18} /> },
           ].map(m => (
+
             <div
               key={m.title}
               onClick={() => navigate(m.path)}

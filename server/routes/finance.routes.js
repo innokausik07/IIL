@@ -8,8 +8,12 @@
 const express = require('express');
 const router  = express.Router();
 const db      = require('../config/db');
+const auth    = require('../middleware/auth');
+
+router.use(auth);
 
 // Helper: auto-generate codes
+
 async function nextCode(prefix, table, col) {
   const [[row]] = await db.execute(
     `SELECT MAX(CAST(SUBSTRING(${col}, LENGTH(?) + 2) AS UNSIGNED)) AS mx FROM ${table} WHERE ${col} LIKE ?`,

@@ -10,8 +10,12 @@
 const express = require('express');
 const router  = express.Router();
 const db      = require('../config/db');
+const auth    = require('../middleware/auth');
+
+router.use(auth);
 
 // 1. Executive Comprehensive KPI Summary
+
 router.get('/kpi-summary', async (req, res) => {
   try {
     const [[assetStats]] = await db.execute(`

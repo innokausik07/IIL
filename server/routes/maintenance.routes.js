@@ -7,8 +7,12 @@
 const express = require('express');
 const router  = express.Router();
 const db      = require('../config/db');
+const auth    = require('../middleware/auth');
+
+router.use(auth);
 
 // Helper: auto-generate ticket codes
+
 async function nextTicketCode() {
   const [[row]] = await db.execute(
     `SELECT MAX(CAST(SUBSTRING(ticket_no, 5) AS UNSIGNED)) AS mx FROM service_tickets WHERE ticket_no LIKE 'TKT-%'`

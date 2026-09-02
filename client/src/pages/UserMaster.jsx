@@ -272,9 +272,11 @@ export default function UserMaster() {
                   <th>Emp ID</th>
                   <th>User Name</th>
                   <th>User Type</th>
+                  <th>Assigned Plant / Hub</th>
+                  <th>Designation</th>
+                  <th>Reporting Manager</th>
                   <th>Phone No.</th>
                   <th>Email-ID</th>
-                  <th>Owner (Location)</th>
                   <th style={{ textAlign: 'center' }}>Status</th>
                   <th style={{ textAlign: 'center', width: 90 }}>Actions</th>
                 </tr>
@@ -282,14 +284,14 @@ export default function UserMaster() {
               <tbody>
                 {fetching ? (
                   <tr>
-                    <td colSpan="10" style={{ textAlign: 'center', padding: '36px', color: '#64748b' }}>
+                    <td colSpan="12" style={{ textAlign: 'center', padding: '36px', color: '#64748b' }}>
                       <div className="spinner" style={{ margin: '0 auto 10px', width: 24, height: 24 }}></div>
                       Loading users...
                     </td>
                   </tr>
                 ) : pagedList.length === 0 ? (
                   <tr>
-                    <td colSpan="10" style={{ textAlign: 'center', padding: '36px', color: '#94a3b8' }}>
+                    <td colSpan="12" style={{ textAlign: 'center', padding: '36px', color: '#94a3b8' }}>
                       No users found
                     </td>
                   </tr>
@@ -322,16 +324,27 @@ export default function UserMaster() {
                           </div>
                         </td>
                         <td>{getRoleBadge(u.utype)}</td>
+                        <td>
+                          <span style={{ color: '#0369a1', fontWeight: '600', fontSize: '12px' }}>
+                            {u.plant_name || u.owner || '—'}
+                          </span>
+                        </td>
+                        <td>
+                          <span style={{ fontSize: '12px', background: '#f1f5f9', color: '#334155', padding: '2px 8px', borderRadius: '10px' }}>
+                            {u.designation_name || '—'}
+                          </span>
+                        </td>
+                        <td style={{ fontSize: '12px', color: '#475569' }}>
+                          {u.reporting_manager_name ? `👤 ${u.reporting_manager_name}` : '—'}
+                        </td>
                         <td>{u.mobile || '—'}</td>
                         <td>{u.email || '—'}</td>
-                        <td>
-                          <span style={{ color: '#0369a1', fontWeight: '500' }}>{u.owner || '—'}</span>
-                        </td>
                         <td style={{ textAlign: 'center' }}>
                           <span className={`badge ${isActive ? 'badge-ack' : 'badge-default'}`}>
                             {isActive ? 'Active' : 'Inactive'}
                           </span>
                         </td>
+
                         <td style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>
                           <button
                             onClick={() => navigate(`/admin/user-master/edit/${u.id}`)}

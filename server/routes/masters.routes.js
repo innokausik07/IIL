@@ -57,17 +57,21 @@ const makeRoutes = (table, idCol, insertCols) => {
 makeRoutes('function_master',     'id', ['function_id', 'function_name', 'descrip', 'icon_img', 'status', 'utype', 'tab']);
 makeRoutes('sub_function_master', 'id', ['function_id', 'sub_name', 'sub_seq', 'file_name', 'tab', 'icon_img', 'status', 'utype']);
 
-// ─── 2. Core Masters ──────────────────────────────────────────────────────────
-makeRoutes('usertype_master',  'id',  ['typename', 'utype', 'refid', 'status']);
-makeRoutes('state_master',     'sno', ['state', 'zone', 'code', 'statecode', 'country', 'status']);
-makeRoutes('district_master',  'id',  ['city', 'state', 'country', 'status']);
-makeRoutes('make_master',      'id',  ['make', 'status']);
-makeRoutes('color_master',     'id',  ['color_name', 'color_code', 'status']);
-makeRoutes('tax_hsn_master',   'sno', ['chapter_no', 'hsn_description', 'hsn_code', 'sgst', 'igst', 'cgst', 'status']);
-makeRoutes('diesl_master',     'sno', ['couriername', 'couriercode', 'contact_person', 'email', 'phone', 'addrs', 'city', 'state', 'gstin', 'status']);
-makeRoutes('parameter_master', 'id',  ['param_name', 'param_value', 'param_type', 'status']);
-makeRoutes('bin_master',       'id',  ['bin_name', 'location_name', 'warehouse', 'status']);
-makeRoutes('asp_master',       'id',  ['asp_name', 'contact_person', 'phone', 'email', 'city', 'state', 'status']);
+// ─── 2. Core Organization & Masters ───────────────────────────────────────────
+makeRoutes('usertype_master',    'id',  ['typename', 'utype', 'refid', 'status']);
+makeRoutes('plant_types',        'id',  ['type_code', 'type_name', 'description', 'status']);
+makeRoutes('designation_master', 'id',  ['designation_code', 'designation_name', 'department_id', 'description', 'status']);
+makeRoutes('plant_departments',  'id',  ['plant_id', 'department_id', 'status']);
+makeRoutes('state_master',       'sno', ['state', 'zone', 'code', 'statecode', 'country', 'status']);
+makeRoutes('district_master',    'id',  ['city', 'state', 'country', 'status']);
+makeRoutes('make_master',        'id',  ['make', 'status']);
+makeRoutes('color_master',       'id',  ['color_name', 'color_code', 'status']);
+makeRoutes('tax_hsn_master',     'sno', ['chapter_no', 'hsn_description', 'hsn_code', 'sgst', 'igst', 'cgst', 'status']);
+makeRoutes('diesl_master',       'sno', ['couriername', 'couriercode', 'contact_person', 'email', 'phone', 'addrs', 'city', 'state', 'gstin', 'status']);
+makeRoutes('parameter_master',   'id',  ['param_name', 'param_value', 'param_type', 'status']);
+makeRoutes('bin_master',         'id',  ['bin_name', 'location_name', 'warehouse', 'status']);
+makeRoutes('asp_master',         'id',  ['asp_name', 'contact_person', 'phone', 'email', 'city', 'state', 'status']);
+
 
 // ─── 3. Product Management ───────────────────────────────────────────────────
 makeRoutes('product_cat_master',  'catid',     ['cat_name', 'short_code', 'status']);

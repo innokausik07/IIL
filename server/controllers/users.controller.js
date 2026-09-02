@@ -72,13 +72,21 @@ const saveProfileImage = (base64Str) => {
   }
 };
 
-// GET /api/users - List all users
+// GET /api/users - List all users with organization hierarchy details
 const getUsers = async (req, res) => {
   try {
     const [rows] = await db.execute(
-      `SELECT id, emp_id, full_name, email, utype, owner, mobile, alt_mobile, profile_img, status, created_at 
-       FROM users 
-       ORDER BY id DESC`
+      `SELECT 
+        u.id, u.emp_id, u.full_name, u.email, u.utype, u.owner, u.mobile, u.alt_mobile, u.profile_img, u.status, u.created_at,
+        u.plant_id, u.department_id, u.designation_id, u.reporting_manager_id,
+        l.location_name as plant_name,
+        d.designation_name,
+        m.full_name as reporting_manager_name
+       FROM users u
+       LEFT JOIN locations l ON u.plant_id = l.id
+       LEFT JOIN designation_master d ON u.designation_id = d.id
+       LEFT JOIN users m ON u.reporting_manager_id = m.id
+       ORDER BY u.id DESC`
     );
     return res.json({ status: 'success', data: rows });
   } catch (err) {
@@ -90,7 +98,10 @@ const getUsers = async (req, res) => {
 // POST /api/users/create - Create a new user
 const createUser = async (req, res) => {
   try {
-    const { userType, owner, empId, password, userName, altMobile, mobileNo, emailId, status, profileImg } = req.body;
+    const { 
+      userType, owner, empId, password, userName, altMobile, mobileNo, emailId, status, profileImg,
+      plantId, departmentId, designationId, reportingManagerId
+    } = req.body;
 
     if (!userName || !password) {
       return res.status(400).json({ status: 'error', message: 'User Name and Password are required.' });
@@ -99,19 +110,27 @@ const createUser = async (req, res) => {
     const savedImgPath = saveProfileImage(profileImg);
 
     const [result] = await db.execute(
-      `INSERT INTO users (full_name, email, password, emp_id, utype, owner, mobile, alt_mobile, profile_img, status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO users (
+        full_name, email, password, emp_id, utype, owner, mobile, alt_mobile, profile_img, status,
+        plant_id, location_id, department_id, designation_id, reporting_manager_id, reporting_to
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
-        userName     || '',
-        emailId      || '',
+        userName            || '',
+        emailId             || '',
         password,
-        empId        || '',
-        userType     || '9',
-        owner        || '',
-        mobileNo     || '',
-        altMobile    || '',
-        savedImgPath || null,
-        status       || '1'
+        empId               || '',
+        userType            || '9',
+        owner               || '',
+        mobileNo            || '',
+        altMobile           || '',
+        savedImgPath        || null,
+        status              || '1',
+        plantId             || null,
+        plantId             || null,
+        departmentId        || null,
+        designationId       || null,
+        reportingManagerId  || null,
+        reportingManagerId  || null
       ]
     );
 
@@ -134,7 +153,10 @@ const createUser = async (req, res) => {
 const updateUser = async (req, res) => {
   try {
     const { id } = req.params;
-    const { userType, owner, empId, password, userName, altMobile, mobileNo, emailId, status, profileImg } = req.body;
+    const { 
+      userType, owner, empId, password, userName, altMobile, mobileNo, emailId, status, profileImg,
+      plantId, departmentId, designationId, reportingManagerId
+    } = req.body;
 
     if (!userName) {
       return res.status(400).json({ status: 'error', message: 'User Name is required.' });
@@ -145,25 +167,53 @@ const updateUser = async (req, res) => {
     if (password && password.trim() !== '') {
       if (savedImgPath !== undefined) {
         await db.execute(
-          `UPDATE users SET full_name = ?, email = ?, password = ?, emp_id = ?, utype = ?, owner = ?, mobile = ?, alt_mobile = ?, profile_img = ?, status = ? WHERE id = ?`,
-          [userName, emailId || '', password, empId || '', userType || '9', owner || '', mobileNo || '', altMobile || '', savedImgPath || null, status || '1', id]
+          `UPDATE users SET 
+            full_name = ?, email = ?, password = ?, emp_id = ?, utype = ?, owner = ?, mobile = ?, alt_mobile = ?, profile_img = ?, status = ?,
+            plant_id = ?, location_id = ?, department_id = ?, designation_id = ?, reporting_manager_id = ?, reporting_to = ?
+           WHERE id = ?`,
+          [
+            userName, emailId || '', password, empId || '', userType || '9', owner || '', mobileNo || '', altMobile || '', savedImgPath || null, status || '1',
+            plantId || null, plantId || null, departmentId || null, designationId || null, reportingManagerId || null, reportingManagerId || null,
+            id
+          ]
         );
       } else {
         await db.execute(
-          `UPDATE users SET full_name = ?, email = ?, password = ?, emp_id = ?, utype = ?, owner = ?, mobile = ?, alt_mobile = ?, status = ? WHERE id = ?`,
-          [userName, emailId || '', password, empId || '', userType || '9', owner || '', mobileNo || '', altMobile || '', status || '1', id]
+          `UPDATE users SET 
+            full_name = ?, email = ?, password = ?, emp_id = ?, utype = ?, owner = ?, mobile = ?, alt_mobile = ?, status = ?,
+            plant_id = ?, location_id = ?, department_id = ?, designation_id = ?, reporting_manager_id = ?, reporting_to = ?
+           WHERE id = ?`,
+          [
+            userName, emailId || '', password, empId || '', userType || '9', owner || '', mobileNo || '', altMobile || '', status || '1',
+            plantId || null, plantId || null, departmentId || null, designationId || null, reportingManagerId || null, reportingManagerId || null,
+            id
+          ]
         );
       }
     } else {
       if (savedImgPath !== undefined) {
         await db.execute(
-          `UPDATE users SET full_name = ?, email = ?, emp_id = ?, utype = ?, owner = ?, mobile = ?, alt_mobile = ?, profile_img = ?, status = ? WHERE id = ?`,
-          [userName, emailId || '', empId || '', userType || '9', owner || '', mobileNo || '', altMobile || '', savedImgPath || null, status || '1', id]
+          `UPDATE users SET 
+            full_name = ?, email = ?, emp_id = ?, utype = ?, owner = ?, mobile = ?, alt_mobile = ?, profile_img = ?, status = ?,
+            plant_id = ?, location_id = ?, department_id = ?, designation_id = ?, reporting_manager_id = ?, reporting_to = ?
+           WHERE id = ?`,
+          [
+            userName, emailId || '', empId || '', userType || '9', owner || '', mobileNo || '', altMobile || '', savedImgPath || null, status || '1',
+            plantId || null, plantId || null, departmentId || null, designationId || null, reportingManagerId || null, reportingManagerId || null,
+            id
+          ]
         );
       } else {
         await db.execute(
-          `UPDATE users SET full_name = ?, email = ?, emp_id = ?, utype = ?, owner = ?, mobile = ?, alt_mobile = ?, status = ? WHERE id = ?`,
-          [userName, emailId || '', empId || '', userType || '9', owner || '', mobileNo || '', altMobile || '', status || '1', id]
+          `UPDATE users SET 
+            full_name = ?, email = ?, emp_id = ?, utype = ?, owner = ?, mobile = ?, alt_mobile = ?, status = ?,
+            plant_id = ?, location_id = ?, department_id = ?, designation_id = ?, reporting_manager_id = ?, reporting_to = ?
+           WHERE id = ?`,
+          [
+            userName, emailId || '', empId || '', userType || '9', owner || '', mobileNo || '', altMobile || '', status || '1',
+            plantId || null, plantId || null, departmentId || null, designationId || null, reportingManagerId || null, reportingManagerId || null,
+            id
+          ]
         );
       }
     }
@@ -174,6 +224,7 @@ const updateUser = async (req, res) => {
     return res.status(500).json({ status: 'error', message: err.sqlMessage || err.message });
   }
 };
+
 
 // DELETE /api/users/:id - Toggle/Deactivate user status
 const deleteUser = async (req, res) => {

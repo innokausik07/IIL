@@ -14,6 +14,10 @@ const INIT_FORM = {
   emailId: '',
   status: '1',
   profileImg: null,
+  plantId: '',
+  departmentId: '',
+  designationId: '',
+  reportingManagerId: '',
 };
 
 export default function UserForm() {
@@ -23,12 +27,14 @@ export default function UserForm() {
   const [searchParams] = useSearchParams();
   const editId = paramId || searchParams.get('id');
 
-  const [form, setForm] = useState(INIT_FORM);
-  const [imgPreview, setImgPreview] = useState(null);
-  const [userTypes, setUserTypes] = useState([]);
-  const [locations, setLocations] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [fetching, setFetching] = useState(false);
+  const [form, setForm]                 = useState(INIT_FORM);
+  const [imgPreview, setImgPreview]     = useState(null);
+  const [userTypes, setUserTypes]       = useState([]);
+  const [locations, setLocations]       = useState([]);
+  const [designations, setDesignations] = useState([]);
+  const [allUsers, setAllUsers]         = useState([]);
+  const [loading, setLoading]           = useState(false);
+  const [fetching, setFetching]         = useState(false);
 
   // Rights Modal State
   const [rightsModal, setRightsModal] = useState(false);
@@ -38,7 +44,7 @@ export default function UserForm() {
   const [selectedSubIds, setSelectedSubIds] = useState(new Set());
   const [rightsSearch, setRightsSearch] = useState('');
 
-  const token = localStorage.getItem('token');
+  const token = localStorage.getItem('erp_token') || localStorage.getItem('token');
   const headers = {
     'Content-Type': 'application/json',
     'Authorization': token ? `Bearer ${token}` : ''
@@ -53,19 +59,39 @@ export default function UserForm() {
           setUserTypes(data.data);
         }
       })
-      .catch(() => console.error('Failed to load user types'));
+      .catch(() => {});
 
-    // 2. Fetch Locations from locations table
+    // 2. Fetch Locations/Plants from locations table
     fetch('/api/locations', { headers })
       .then(res => res.json())
       .then(data => {
         if (data.status === 'success' && data.data) {
-          setLocations(data.data);
+          setLocations(data.data.filter(l => l.status !== 'D'));
         }
       })
-      .catch(() => console.error('Failed to load locations'));
+      .catch(() => {});
 
-    // 3. If editing, fetch existing user data
+    // 3. Fetch Designations
+    fetch('/api/masters/designation_master', { headers })
+      .then(res => res.json())
+      .then(data => {
+        if (data.status === 'success' && data.data) {
+          setDesignations(data.data.filter(d => d.status !== 'D'));
+        }
+      })
+      .catch(() => {});
+
+    // 4. Fetch Users for Reporting Manager dropdown
+    fetch('/api/users', { headers })
+      .then(res => res.json())
+      .then(data => {
+        if (data.status === 'success' && data.data) {
+          setAllUsers(data.data.filter(u => u.status === '1' && (!editId || String(u.id) !== String(editId))));
+        }
+      })
+      .catch(() => {});
+
+    // 5. If editing, fetch existing user data
     if (editId) {
       setFetching(true);
       fetch('/api/users', { headers })
@@ -85,6 +111,10 @@ export default function UserForm() {
                 emailId: u.email ?? '',
                 status: String(u.status ?? '1'),
                 profileImg: u.profile_img || null,
+                plantId: String(u.plant_id || ''),
+                departmentId: String(u.department_id || ''),
+                designationId: String(u.designation_id || ''),
+                reportingManagerId: String(u.reporting_manager_id || '')
               });
               if (u.profile_img) {
                 setImgPreview(u.profile_img);
@@ -96,11 +126,12 @@ export default function UserForm() {
         .finally(() => setFetching(false));
     }
 
-    // 4. Auto-open rights if ?rights=1 in URL
+    // 6. Auto-open rights if ?rights=1 in URL
     if (editId && searchParams.get('rights') === '1') {
       handleOpenRights();
     }
   }, [editId]);
+
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -349,18 +380,43 @@ export default function UserForm() {
               {/* Right Column */}
               <div>
                 <div style={rowStyle}>
-                  <label style={labelStyle}>Owner (Location)</label>
-                  <select name="owner" value={form.owner} onChange={handleChange} style={fieldStyle}>
-                    <option value="">-- Select Location / Owner --</option>
+                  <label style={labelStyle}>Assigned Plant / Hub</label>
+                  <select name="plantId" value={form.plantId} onChange={handleChange} style={fieldStyle}>
+                    <option value="">-- Select Plant / Warehouse Hub --</option>
                     {locations
                       .filter(l => l.status === '1' || l.status === 1)
                       .map(l => (
-                        <option key={l.id} value={l.location_name}>
-                          {l.location_name} {l.city ? `(${l.city})` : ''}
+                        <option key={l.id} value={l.id}>
+                          {l.location_name} {l.plant_code ? `(${l.plant_code})` : ''} {l.plant_type_name ? `• ${l.plant_type_name}` : ''}
                         </option>
                       ))}
                   </select>
                 </div>
+
+                <div style={rowStyle}>
+                  <label style={labelStyle}>Designation (Position)</label>
+                  <select name="designationId" value={form.designationId} onChange={handleChange} style={fieldStyle}>
+                    <option value="">-- Select Designation --</option>
+                    {designations.map(d => (
+                      <option key={d.id} value={d.id}>
+                        {d.designation_name} ({d.designation_code})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div style={rowStyle}>
+                  <label style={labelStyle}>Reporting Manager</label>
+                  <select name="reportingManagerId" value={form.reportingManagerId} onChange={handleChange} style={fieldStyle}>
+                    <option value="">-- Select Reporting Manager --</option>
+                    {allUsers.map(u => (
+                      <option key={u.id} value={u.id}>
+                        {u.full_name} ({u.emp_id || `USR_${u.id}`})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
 
                 <div style={rowStyle}>
                   <label style={labelStyle}>

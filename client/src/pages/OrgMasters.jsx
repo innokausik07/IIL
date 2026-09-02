@@ -132,15 +132,29 @@ export default function OrgMasters() {
       />
 
       <MasterTable
-        title="Location Types"
-        sub="Head Office, Plant, Mother Warehouse, Child Warehouse, Repair Center, Client Site ..."
-        table="location_types"
+        title="Plant Types Master"
+        sub="Head Office (HO), Mother Warehouse (MWH), Child Warehouse (CWH), Repair Center (RC), Branch Office (BO)"
+        table="plant_types"
         fields={[
-          { key:'type_code', label:'Type Code', required:true, placeholder:'MOTHER_WH' },
+          { key:'type_code', label:'Type Code', required:true, placeholder:'MWH' },
           { key:'type_name', label:'Type Name', required:true, placeholder:'Mother Warehouse' },
+          { key:'description', label:'Description', placeholder:'Regional fulfillment and stock hub' },
           { key:'status', label:'Status', type:'select', options:[{v:'1',l:'Active'},{v:'0',l:'Inactive'}], default:'1' },
         ]}
       />
+
+      <MasterTable
+        title="Designations Master"
+        sub="Organizational positions: Director, Warehouse Manager, Field Technician, Sales Exec, Accountant"
+        table="designation_master"
+        fields={[
+          { key:'designation_code', label:'Designation Code', required:true, placeholder:'WHM' },
+          { key:'designation_name', label:'Designation Name', required:true, placeholder:'Warehouse Manager' },
+          { key:'description', label:'Job Role / Scope', placeholder:'Responsible for warehouse stock & inventory' },
+          { key:'status', label:'Status', type:'select', options:[{v:'1',l:'Active'},{v:'0',l:'Inactive'}], default:'1' },
+        ]}
+      />
+
 
       <MasterTable
         title="Asset Status Master"

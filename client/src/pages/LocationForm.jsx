@@ -6,6 +6,7 @@ import { MapPin, ArrowLeft, Save } from 'lucide-react';
 import { lookupPincode } from '../utils/pincodeLookup';
 
 const INIT = {
+  plant_code: '', plant_type_id: '2', parent_plant_id: '',
   location_name: '', contact_person: '', department: '', designation: '',
   contact_no: '', contact_email: '', pan: '', gstin: '',
   pincode: '', city: '', state: '', address: '', status: '1'
@@ -17,15 +18,37 @@ export default function LocationForm() {
   const [searchParams] = useSearchParams();
   const editId = paramId || searchParams.get('id');
 
-  const [form, setForm]         = useState(INIT);
-  const [loading, setLoading]   = useState(false);
-  const [fetching, setFetching] = useState(false);
-  const [pinLoading, setPinLoading] = useState(false);
+  const [form, setForm]                 = useState(INIT);
+  const [plantTypes, setPlantTypes]     = useState([]);
+  const [allLocations, setAllLocations] = useState([]);
+  const [loading, setLoading]           = useState(false);
+  const [fetching, setFetching]         = useState(false);
+  const [pinLoading, setPinLoading]     = useState(false);
 
-  const token = localStorage.getItem('token');
+  const token = localStorage.getItem('erp_token') || localStorage.getItem('token');
   const headers = { 'Content-Type': 'application/json', 'Authorization': token ? `Bearer ${token}` : '' };
 
   useEffect(() => {
+    // 1. Fetch Plant Types
+    fetch('/api/masters/plant_types', { headers })
+      .then(res => res.json())
+      .then(data => {
+        if (data.status === 'success' && data.data) {
+          setPlantTypes(data.data.filter(pt => pt.status !== 'D'));
+        }
+      })
+      .catch(() => {});
+
+    // 2. Fetch all locations for Parent Plant dropdown
+    fetch('/api/locations', { headers })
+      .then(res => res.json())
+      .then(data => {
+        if (data.status === 'success' && data.data) {
+          setAllLocations(data.data.filter(l => l.status !== 'D' && (!editId || String(l.id) !== String(editId))));
+        }
+      })
+      .catch(() => {});
+
     if (editId) {
       setFetching(true);
       fetch('/api/locations', { headers })
@@ -35,6 +58,9 @@ export default function LocationForm() {
             const loc = data.data.find(x => String(x.id) === String(editId));
             if (loc) {
               setForm({
+                plant_code: loc.plant_code || '',
+                plant_type_id: String(loc.plant_type_id || '2'),
+                parent_plant_id: String(loc.parent_plant_id || ''),
                 location_name: loc.location_name || '',
                 contact_person: loc.contact_person || '',
                 department: loc.department || '',
@@ -56,6 +82,7 @@ export default function LocationForm() {
         .finally(() => setFetching(false));
     }
   }, [editId]);
+
 
   const handleChange = async (e) => {
     const { name, value } = e.target;
@@ -134,13 +161,41 @@ export default function LocationForm() {
 
             {/* Left */}
             <div>
-              <div style={r}><label style={l}>Location Name <span style={{ color: '#ef4444' }}>*</span></label>
+              <div style={r}><label style={l}>Plant / Hub Code</label>
+                <input name="plant_code" placeholder="e.g. PLT-KOL-01" value={form.plant_code} onChange={handleChange} style={f} /></div>
+
+              <div style={r}><label style={l}>Plant Type <span style={{ color: '#ef4444' }}>*</span></label>
+                <select name="plant_type_id" value={form.plant_type_id} onChange={handleChange} required style={f}>
+                  {plantTypes.map(pt => (
+                    <option key={pt.id} value={pt.id}>{pt.type_name} ({pt.type_code})</option>
+                  ))}
+                  {plantTypes.length === 0 && (
+                    <>
+                      <option value="1">Head Office (HO)</option>
+                      <option value="2">Mother Warehouse (MWH)</option>
+                      <option value="3">Child Warehouse (CWH)</option>
+                      <option value="4">Repair & Service Center (RC)</option>
+                      <option value="5">Branch Office (BO)</option>
+                    </>
+                  )}
+                </select></div>
+
+              <div style={r}><label style={l}>Parent Plant (if child)</label>
+                <select name="parent_plant_id" value={form.parent_plant_id} onChange={handleChange} style={f}>
+                  <option value="">-- None (Independent / Root Plant) --</option>
+                  {allLocations.map(p => (
+                    <option key={p.id} value={p.id}>{p.location_name} {p.plant_code ? `(${p.plant_code})` : ''}</option>
+                  ))}
+                </select></div>
+
+              <div style={r}><label style={l}>Plant / Location Name <span style={{ color: '#ef4444' }}>*</span></label>
                 <input name="location_name" value={form.location_name} onChange={handleChange} required style={f} /></div>
 
-              <div style={r}><label style={l}>Location Status</label>
+              <div style={r}><label style={l}>Status</label>
                 <select name="status" value={form.status} onChange={handleChange} style={f}>
                   <option value="1">Active</option><option value="0">Inactive</option>
                 </select></div>
+
 
               <div style={r}><label style={l}>Contact Person <span style={{ color: '#ef4444' }}>*</span></label>
                 <input name="contact_person" value={form.contact_person} onChange={handleChange} required style={f} /></div>

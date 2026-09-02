@@ -192,10 +192,12 @@ export default function LocationMaster() {
                     />
                   </th>
                   <th style={{ width: 45 }}>#</th>
-                  <th>Location Name</th>
+                  <th>Plant Code</th>
+                  <th>Plant / Location Name</th>
+                  <th>Plant Type</th>
+                  <th>Parent Plant</th>
                   <th>City</th>
                   <th>State</th>
-                  <th>Pincode</th>
                   <th>Contact Person</th>
                   <th>Contact No</th>
                   <th style={{ textAlign: 'center' }}>Status</th>
@@ -205,15 +207,15 @@ export default function LocationMaster() {
               <tbody>
                 {fetching ? (
                   <tr>
-                    <td colSpan="10" style={{ textAlign: 'center', padding: '36px', color: '#64748b' }}>
+                    <td colSpan="12" style={{ textAlign: 'center', padding: '36px', color: '#64748b' }}>
                       <div className="spinner" style={{ margin: '0 auto 10px', width: 24, height: 24 }}></div>
-                      Loading locations...
+                      Loading plants & locations...
                     </td>
                   </tr>
                 ) : pagedList.length === 0 ? (
                   <tr>
-                    <td colSpan="10" style={{ textAlign: 'center', padding: '36px', color: '#94a3b8' }}>
-                      No locations found
+                    <td colSpan="12" style={{ textAlign: 'center', padding: '36px', color: '#94a3b8' }}>
+                      No plants or locations found
                     </td>
                   </tr>
                 ) : (
@@ -231,10 +233,22 @@ export default function LocationMaster() {
                           />
                         </td>
                         <td style={{ color: '#94a3b8' }}>{(page - 1) * limit + idx + 1}</td>
+                        <td>
+                          <span style={{ fontFamily: 'monospace', fontWeight: 600, color: '#6366f1', background: '#f5f3ff', padding: '2px 6px', borderRadius: 4 }}>
+                            {loc.plant_code || `PLT-${loc.id}`}
+                          </span>
+                        </td>
                         <td><strong style={{ color: '#1e293b' }}>{loc.location_name}</strong></td>
+                        <td>
+                          <span style={{ fontSize: 11, background: '#eff6ff', color: '#1d4ed8', padding: '2px 8px', borderRadius: 12, fontWeight: 600 }}>
+                            {loc.plant_type_name || 'Warehouse'}
+                          </span>
+                        </td>
+                        <td style={{ color: loc.parent_plant_name ? '#0f172a' : '#94a3b8', fontSize: 12 }}>
+                          {loc.parent_plant_name ? `↳ ${loc.parent_plant_name}` : '— (Root)'}
+                        </td>
                         <td>{loc.city}</td>
                         <td>{loc.state}</td>
-                        <td>{loc.pincode || '—'}</td>
                         <td>{loc.contact_person}</td>
                         <td>{loc.contact_no}</td>
                         <td style={{ textAlign: 'center' }}>

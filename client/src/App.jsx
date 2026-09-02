@@ -63,6 +63,7 @@ import PurchaseOrderForm from './pages/PurchaseOrderForm';
 import PrintRentalAgreement from './pages/PrintRentalAgreement';
 import PrintInvoice from './pages/PrintInvoice';
 import PrintDeliveryChallan from './pages/PrintDeliveryChallan';
+import PrintAssetBarcode from './pages/PrintAssetBarcode';
 import OrgMasters from './pages/OrgMasters';
 
 // ── Phase 2 ERP: Rental Orders, Invoices ───────────────────────────────
@@ -127,7 +128,9 @@ function AppRoutes() {
       <Route path="/crm/rfp-master"       element={<ProtectedRoute><RfpMaster /></ProtectedRoute>} />
 
       {/* ── Phase 1 ERP: Asset Management ─────────────────────────────────── */}
-      <Route path="/assets/asset-master"    element={<ProtectedRoute><AssetMaster /></ProtectedRoute>} />
+      <Route path="/assets/asset-master"             element={<ProtectedRoute><AssetMaster /></ProtectedRoute>} />
+      <Route path="/assets/asset-master/:id/barcode" element={<ProtectedRoute><PrintAssetBarcode /></ProtectedRoute>} />
+
 
       {/* ── Phase 1 ERP: Rental Plan Master ───────────────────────────────── */}
       <Route path="/rental/rental-plans"    element={<ProtectedRoute><RentalPlanMaster /></ProtectedRoute>} />

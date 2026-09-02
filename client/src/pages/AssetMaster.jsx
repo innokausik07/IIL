@@ -166,9 +166,14 @@ export default function AssetMaster() {
                   <td>{a.condition_name||'—'}</td>
                   <td>₹{Number(a.purchase_cost||0).toLocaleString('en-IN')}</td>
                   <td>
+                    <button className="erp-btn-icon" title="Print Barcode Label" onClick={() => nav(`/assets/asset-master/${a.id}/barcode`)} style={{ color: '#6366f1' }}>
+                      <i className="fa fa-barcode" />
+                    </button>
+
                     <button className="erp-btn-icon" title="View Movements" onClick={() => nav(`/assets/asset-movements?id=${a.id}&code=${a.asset_code}`)}>
                       <i className="fa fa-exchange" />
                     </button>
+
                     <button className="erp-btn-icon" title="Edit" onClick={() => handleEdit(a)}>
                       <i className="fa fa-pencil" />
                     </button>
@@ -176,6 +181,7 @@ export default function AssetMaster() {
                       <i className="fa fa-trash" />
                     </button>
                   </td>
+
                 </tr>
               ))}
             </tbody>

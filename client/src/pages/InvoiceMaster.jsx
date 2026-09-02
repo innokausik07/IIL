@@ -199,11 +199,16 @@ export default function InvoiceMaster() {
                         <i className="fa fa-money" />
                       </button>
                     )}
-                    <button className="erp-btn-icon" title="View Detail" onClick={() => nav(`/finance/invoices/${i.id}`)}>
+                    <button className="erp-btn-icon" title="Print Tax Invoice" onClick={() => nav(`/finance/invoices/${i.id}/print`)} style={{ color: '#059669' }}>
+                      <i className="fa fa-print" />
+                    </button>
+                    <button className="erp-btn-icon" title="View Detail" onClick={() => nav(`/finance/invoices/${i.id}/print`)}>
                       <i className="fa fa-eye" />
                     </button>
                   </td>
                 </tr>
+
+
               ))}
             </tbody>
           </table>

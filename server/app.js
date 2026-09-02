@@ -40,6 +40,8 @@ app.use('/api/rental',        require('./routes/rental.routes'));   // Phase 2: 
 app.use('/api/finance',       require('./routes/finance.routes'));  // Phase 2: Invoices & Payments
 app.use('/api/maintenance',   require('./routes/maintenance.routes')); // Phase 3: Service Tickets & Maintenance
 app.use('/api/reports',       require('./routes/reports.routes'));     // Phase 3: Analytics & Executive Reports
+app.use('/api/procurement',   require('./routes/procurement.routes')); // Phase 4: Purchase Orders & Inward Flow
+
 
 // ── Health check ──────────────────────────────────────────────────────────────
 app.get('/api/health', (req, res) => {

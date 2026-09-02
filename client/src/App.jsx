@@ -58,6 +58,10 @@ import RfpMaster from './pages/RfpMaster';
 // ── Phase 1 ERP: Asset, Rental & Org Masters ──────────────────────────────────
 import AssetMaster from './pages/AssetMaster';
 import RentalPlanMaster from './pages/RentalPlanMaster';
+import PurchaseOrders from './pages/PurchaseOrders';
+import PurchaseOrderForm from './pages/PurchaseOrderForm';
+import PrintRentalAgreement from './pages/PrintRentalAgreement';
+import PrintInvoice from './pages/PrintInvoice';
 import OrgMasters from './pages/OrgMasters';
 
 // ── Phase 2 ERP: Rental Orders, Invoices ───────────────────────────────
@@ -69,6 +73,7 @@ import InvoiceMaster from './pages/InvoiceMaster';
 // ── Phase 3 ERP: Service & Maintenance, Reports & Analytics ───────────
 import ServiceTickets from './pages/ServiceTickets';
 import ReportsAnalytics from './pages/ReportsAnalytics';
+
 
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
@@ -125,14 +130,20 @@ function AppRoutes() {
       {/* ── Phase 1 ERP: Rental Plan Master ───────────────────────────────── */}
       <Route path="/rental/rental-plans"    element={<ProtectedRoute><RentalPlanMaster /></ProtectedRoute>} />
 
-      {/* ── Phase 2 ERP: Rental Orders ─────────────────────────────────────── */}
-      <Route path="/rental/rental-orders"          element={<ProtectedRoute><RentalOrders /></ProtectedRoute>} />
-      <Route path="/rental/rental-orders/new"       element={<ProtectedRoute><RentalOrderForm /></ProtectedRoute>} />
-      <Route path="/rental/rental-orders/edit/:id"  element={<ProtectedRoute><RentalOrderForm /></ProtectedRoute>} />
-      <Route path="/rental/rental-orders/:id"       element={<ProtectedRoute><RentalOrderDetail /></ProtectedRoute>} />
+      {/* ── Phase 2 ERP: Rental Orders & Print Agreement ───────────────────── */}
+      <Route path="/rental/rental-orders"                 element={<ProtectedRoute><RentalOrders /></ProtectedRoute>} />
+      <Route path="/rental/rental-orders/new"              element={<ProtectedRoute><RentalOrderForm /></ProtectedRoute>} />
+      <Route path="/rental/rental-orders/edit/:id"         element={<ProtectedRoute><RentalOrderForm /></ProtectedRoute>} />
+      <Route path="/rental/rental-orders/:id"              element={<ProtectedRoute><RentalOrderDetail /></ProtectedRoute>} />
+      <Route path="/rental/rental-orders/:id/print-agreement" element={<ProtectedRoute><PrintRentalAgreement /></ProtectedRoute>} />
 
       {/* ── Phase 2 ERP: Finance & Invoices ───────────────────────────────── */}
       <Route path="/finance/invoices"               element={<ProtectedRoute><InvoiceMaster /></ProtectedRoute>} />
+      <Route path="/finance/invoices/:id/print"      element={<ProtectedRoute><PrintInvoice /></ProtectedRoute>} />
+
+      {/* ── Phase 4 ERP: Procurement & Purchase Orders ────────────────────── */}
+      <Route path="/procurement/purchase-orders"     element={<ProtectedRoute><PurchaseOrders /></ProtectedRoute>} />
+      <Route path="/procurement/purchase-orders/new" element={<ProtectedRoute><PurchaseOrderForm /></ProtectedRoute>} />
 
       {/* ── Phase 3 ERP: Service & Maintenance ────────────────────────────── */}
       <Route path="/maintenance/tickets"            element={<ProtectedRoute><ServiceTickets /></ProtectedRoute>} />

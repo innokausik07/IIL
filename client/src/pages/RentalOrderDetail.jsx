@@ -131,11 +131,16 @@ export default function RentalOrderDetail() {
               </button>
             </>
           )}
+          <button className="erp-btn-primary" onClick={() => nav(`/rental/rental-orders/${id}/print-agreement`)}>
+            <i className="fa fa-print" /> Print Agreement
+          </button>
           <button className="erp-btn-ghost" onClick={() => nav('/rental/rental-orders')}>
             <i className="fa fa-arrow-left" /> Back
           </button>
         </div>
       </div>
+
+
 
       {/* Info Cards Row */}
       <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'1rem', marginBottom:'1.5rem' }}>

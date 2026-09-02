@@ -5,12 +5,27 @@ const express = require('express');
 const router  = express.Router();
 const db      = require('../config/db');
 
-// Helper to register standard CRUD for any table
+const tableColsCache = {};
+async function getExistingColumns(table) {
+  if (tableColsCache[table]) return tableColsCache[table];
+  try {
+    const [cols] = await db.execute(`SHOW COLUMNS FROM ${table}`);
+    const colNames = new Set(cols.map(c => c.Field.toLowerCase()));
+    tableColsCache[table] = colNames;
+    return colNames;
+  } catch (e) {
+    return null;
+  }
+}
+
+// Helper to register standard CRUD for any table with dynamic column check
 const makeRoutes = (table, idCol, insertCols) => {
   // GET list
   router.get(`/${table}`, async (req, res) => {
     try {
-      const [rows] = await db.execute(`SELECT * FROM ${table} ORDER BY ${idCol} ASC`);
+      const existingCols = await getExistingColumns(table);
+      const orderBy = existingCols && existingCols.has(idCol.toLowerCase()) ? `ORDER BY ${idCol} ASC` : '';
+      const [rows] = await db.execute(`SELECT * FROM ${table} ${orderBy}`);
       res.json({ status: 'success', data: rows });
     } catch (e) {
       res.status(500).json({ status: 'error', message: e.sqlMessage || e.message });
@@ -20,9 +35,19 @@ const makeRoutes = (table, idCol, insertCols) => {
   // POST create
   router.post(`/${table}`, async (req, res) => {
     try {
-      const values = insertCols.map(c => req.body[c] ?? null);
-      const cols   = insertCols.join(', ');
-      const marks  = insertCols.map(() => '?').join(', ');
+      const existingCols = await getExistingColumns(table);
+      // Filter insertCols to only those that exist in the physical table
+      const validCols = existingCols 
+        ? insertCols.filter(c => existingCols.has(c.toLowerCase())) 
+        : insertCols;
+
+      if (validCols.length === 0) {
+        return res.status(400).json({ status: 'error', message: 'No valid matching columns found for table.' });
+      }
+
+      const values = validCols.map(c => req.body[c] ?? null);
+      const cols   = validCols.join(', ');
+      const marks  = validCols.map(() => '?').join(', ');
       const [result] = await db.execute(`INSERT INTO ${table} (${cols}) VALUES (${marks})`, values);
       res.json({ status: 'success', message: 'Created successfully!', id: result.insertId });
     } catch (e) {
@@ -33,8 +58,13 @@ const makeRoutes = (table, idCol, insertCols) => {
   // PUT update
   router.put(`/${table}/:id`, async (req, res) => {
     try {
-      const sets   = insertCols.map(c => `${c} = ?`).join(', ');
-      const values = [...insertCols.map(c => req.body[c] ?? null), req.params.id];
+      const existingCols = await getExistingColumns(table);
+      const validCols = existingCols 
+        ? insertCols.filter(c => existingCols.has(c.toLowerCase())) 
+        : insertCols;
+
+      const sets   = validCols.map(c => `${c} = ?`).join(', ');
+      const values = [...validCols.map(c => req.body[c] ?? null), req.params.id];
       await db.execute(`UPDATE ${table} SET ${sets} WHERE ${idCol} = ?`, values);
       res.json({ status: 'success', message: 'Updated successfully!' });
     } catch (e) {
@@ -45,13 +75,21 @@ const makeRoutes = (table, idCol, insertCols) => {
   // DELETE / deactivate
   router.delete(`/${table}/:id`, async (req, res) => {
     try {
-      await db.execute(`UPDATE ${table} SET status = 'D' WHERE ${idCol} = ?`, [req.params.id]);
+      const existingCols = await getExistingColumns(table);
+      if (existingCols && existingCols.has('status')) {
+        await db.execute(`UPDATE ${table} SET status = 'D' WHERE ${idCol} = ?`, [req.params.id]);
+      } else if (existingCols && existingCols.has('status_id')) {
+        await db.execute(`UPDATE ${table} SET status_id = '0' WHERE ${idCol} = ?`, [req.params.id]);
+      } else {
+        await db.execute(`DELETE FROM ${table} WHERE ${idCol} = ?`, [req.params.id]);
+      }
       res.json({ status: 'success', message: 'Deactivated successfully!' });
     } catch (e) {
       res.status(500).json({ status: 'error', message: e.sqlMessage || e.message });
     }
   });
 };
+
 
 // ─── 1. Function & Sub-Function Masters (Module Hierarchy) ────────────────────
 makeRoutes('function_master',     'id', ['function_id', 'function_name', 'descrip', 'icon_img', 'status', 'utype', 'tab']);

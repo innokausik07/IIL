@@ -56,6 +56,8 @@ INSERT INTO `sub_function_master` (`id`, `function_id`, `sub_name`, `sub_seq`, `
 
 -- FN03: Purchase
 (7,  'FN03', 'Price Master',             1, '/products/price-master',       'Purchase',  'fa-dollar',       'Y', '2'),
+(50, 'FN03', 'Purchase Orders',          2, '/procurement/purchase-orders', 'Purchase',  'fa-shopping-cart','Y', '2'),
+(51, 'FN03', 'New Purchase Order',       3, '/procurement/purchase-orders/new','Purchase','fa-plus-circle', 'Y', '2'),
 
 -- FN04: Return
 (8,  'FN04', 'Return Delivery Challan',  1, '/logistics/return-dc',         'Return',    'fa-reply',        'Y', '2'),
@@ -116,6 +118,7 @@ INSERT INTO `sub_function_master` (`id`, `function_id`, `sub_name`, `sub_seq`, `
 (33, 'FN23', 'User Master',              1, '/admin/user-master',           'Admin',     'fa-user-plus',    'Y', '1'),
 (34, 'FN23', 'Function Master',          2, '/admin/function-master',       'Admin',     'fa-sitemap',      'Y', '1'),
 (35, 'FN23', 'Sub-Function Master',      3, '/admin/subfunction-master',    'Admin',     'fa-list-alt',     'Y', '1'),
+(52, 'FN23', 'User-Type Rights',         4, '/admin/usertype-rights',       'Admin',     'fa-shield',       'Y', '1'),
 
 -- FN24: Reports & Analytics
 (36, 'FN24', 'Executive Analytics',      1, '/reports/analytics',           'Reports',   'fa-line-chart',   'Y', '2'),
@@ -131,6 +134,7 @@ INSERT INTO `sub_function_master` (`id`, `function_id`, `sub_name`, `sub_seq`, `
 (44, 'FN25', 'Parameter Master',         8, '/admin/parameter-master',      'Masters',   'fa-sliders',      'Y', '1'),
 (45, 'FN25', 'Bin Master',               9, '/admin/bin-master',            'Masters',   'fa-archive',      'Y', '1'),
 (46, 'FN25', 'ASP Service Partner',     10, '/admin/asp-master',            'Masters',   'fa-shield',       'Y', '1'),
+(53, 'FN25', 'Plant Types & Designations', 11, '/org/location-types',       'Masters',   'fa-sitemap',      'Y', '1'),
 
 -- FN26: Asset Management
 (47, 'FN26', 'Asset Master (Fleet)',     1, '/assets/asset-master',         'Asset',     'fa-laptop',       'Y', '2'),
@@ -140,6 +144,7 @@ INSERT INTO `sub_function_master` (`id`, `function_id`, `sub_name`, `sub_seq`, `
 
 -- FN28: Procurement RFQ
 (49, 'FN28', 'RFP / Tender Master',      1, '/crm/rfp-master',              'Procurement','fa-award',       'Y', '2');
+
 
 -- 3. Automatically Grant Access in access_function for all active users
 ALTER TABLE `access_function`

@@ -62,6 +62,7 @@ import PurchaseOrders from './pages/PurchaseOrders';
 import PurchaseOrderForm from './pages/PurchaseOrderForm';
 import PrintRentalAgreement from './pages/PrintRentalAgreement';
 import PrintInvoice from './pages/PrintInvoice';
+import PrintDeliveryChallan from './pages/PrintDeliveryChallan';
 import OrgMasters from './pages/OrgMasters';
 
 // ── Phase 2 ERP: Rental Orders, Invoices ───────────────────────────────
@@ -101,12 +102,13 @@ function AppRoutes() {
       <Route path="/store-stock"      element={<ProtectedRoute><StoreStockList /></ProtectedRoute>} />
 
       {/* Logistics & Shipping */}
-      <Route path="/logistics/calculator"        element={<ProtectedRoute><LogisticsCalculator /></ProtectedRoute>} />
-      <Route path="/logistics/delivery-challan"  element={<ProtectedRoute><DeliveryChallanMaster /></ProtectedRoute>} />
-      <Route path="/logistics/grn-receipt"       element={<ProtectedRoute><GrnMaster /></ProtectedRoute>} />
-      <Route path="/logistics/return-dc"         element={<ProtectedRoute><ReturnDcMaster /></ProtectedRoute>} />
-      <Route path="/logistics/dispatch-tracking" element={<ProtectedRoute><ShipmentTracking /></ProtectedRoute>} />
-      <Route path="/logistics/courier-rates"     element={<ProtectedRoute><CourierRateMaster /></ProtectedRoute>} />
+      <Route path="/logistics/calculator"              element={<ProtectedRoute><LogisticsCalculator /></ProtectedRoute>} />
+      <Route path="/logistics/delivery-challan"        element={<ProtectedRoute><DeliveryChallanMaster /></ProtectedRoute>} />
+      <Route path="/logistics/delivery-challan/:id/print" element={<ProtectedRoute><PrintDeliveryChallan /></ProtectedRoute>} />
+      <Route path="/logistics/grn-receipt"             element={<ProtectedRoute><GrnMaster /></ProtectedRoute>} />
+      <Route path="/logistics/return-dc"               element={<ProtectedRoute><ReturnDcMaster /></ProtectedRoute>} />
+      <Route path="/logistics/dispatch-tracking"       element={<ProtectedRoute><ShipmentTracking /></ProtectedRoute>} />
+      <Route path="/logistics/courier-rates"           element={<ProtectedRoute><CourierRateMaster /></ProtectedRoute>} />
 
       {/* Product Management */}
       <Route path="/products/product-master"     element={<ProtectedRoute><ProductMaster /></ProtectedRoute>} />

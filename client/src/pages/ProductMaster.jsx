@@ -33,12 +33,12 @@ export default function ProductMaster() {
 
   const categoryOptions = categories.map(c => ({
     value: String(c.catid ?? c.cat_name),
-    label: `${c.cat_name} (ID: ${c.catid}${c.short_code ? `, Code: ${c.short_code}` : ''})`
+    label: c.cat_name
   }));
 
   const subcatOptions = subcategories.map(s => ({
     value: String(s.psubcatid ?? s.prod_sub_cat),
-    label: `${s.prod_sub_cat} (ID: ${s.psubcatid}${s.product_category ? `, Parent: ${s.product_category}` : ''})`
+    label: s.prod_sub_cat
   }));
 
   const brandOptions = brands.map(b => ({

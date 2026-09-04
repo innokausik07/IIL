@@ -28,19 +28,19 @@ export default function ProductSubcategoryMaster() {
 
   const catNameOptions = categories.map(c => ({
     value: c.cat_name,
-    label: c.cat_name + (c.short_code ? ` (${c.short_code})` : '')
+    label: c.cat_name
   }));
 
   const catCodeOptions = categories.map(c => ({
     value: c.short_code || String(c.catid),
-    label: `${c.short_code || c.catid} — ${c.cat_name}`
+    label: c.short_code || String(c.catid)
   }));
 
   const fields = [
     { name: 'prod_sub_cat', label: 'Sub-Category Name', required: true },
     {
       name: 'product_category',
-      label: 'Parent Category Name',
+      label: 'Category',
       type: 'select',
       options: catNameOptions,
       onChange: (val, nextForm) => {
@@ -53,7 +53,7 @@ export default function ProductSubcategoryMaster() {
     },
     {
       name: 'productid',
-      label: 'Category Code/ID',
+      label: 'Category Code',
       type: 'select',
       options: catCodeOptions,
       onChange: (val, nextForm) => {

@@ -27,12 +27,12 @@ export default function BomMaster() {
 
   const subcatOptions = subcategories.map(s => ({
     value: s.prod_sub_cat,
-    label: s.prod_sub_cat + (s.product_category ? ` (${s.product_category})` : '')
+    label: s.prod_sub_cat
   }));
 
   const productOptions = products.map(p => ({
     value: p.product_name,
-    label: p.product_name + (p.part_code ? ` [${p.part_code}]` : '')
+    label: p.product_name
   }));
 
   const fields = [

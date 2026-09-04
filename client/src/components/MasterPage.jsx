@@ -44,7 +44,12 @@ export default function MasterPage({ title, icon, apiPath, fields, columns }) {
 
   const handleChange = async (e) => {
     const { name, value } = e.target;
-    setForm(prev => ({ ...prev, [name]: value }));
+    let nextForm = { ...form, [name]: value };
+    const fieldDef = fields.find(f => f.name === name);
+    if (fieldDef && typeof fieldDef.onChange === 'function') {
+      nextForm = fieldDef.onChange(value, nextForm, form) || nextForm;
+    }
+    setForm(nextForm);
 
     // Global Auto-Pincode Detection
     if (name.toLowerCase().includes('pin') || name.toLowerCase().includes('zip')) {

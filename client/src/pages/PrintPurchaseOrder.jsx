@@ -43,7 +43,7 @@ export default function PrintPurchaseOrder() {
   const totalAmount = parseFloat(po.total_amount || 0);
 
   return (
-    <div style={{ background: '#f1f5f9', minHeight: '100vh', padding: '20px' }}>
+    <div className="print-page-wrapper" style={{ background: '#f1f5f9', minHeight: '100vh', padding: '20px' }}>
       {/* Action Bar */}
       <div className="no-print" style={{ maxWidth: '850px', margin: '0 auto 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <button onClick={() => navigate('/procurement/purchase-orders')} className="erp-btn-ghost">
@@ -55,7 +55,7 @@ export default function PrintPurchaseOrder() {
       </div>
 
       {/* A4 Sheet */}
-      <div style={{
+      <div className="print-sheet" style={{
         maxWidth: '850px',
         margin: '0 auto',
         background: '#fff',

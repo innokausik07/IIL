@@ -364,7 +364,7 @@ router.post('/purchase-orders/:id/receive-grn', async (req, res) => {
 
     const newStatus = (summary.total_received >= summary.total_ordered) ? 'Received' : 'Partially Received';
     await conn.execute(
-      `UPDATE purchase_order SET status = ?, updated_at = NOW() WHERE id = ?`,
+      `UPDATE purchase_order SET status = ? WHERE id = ?`,
       [newStatus, poId]
     );
 

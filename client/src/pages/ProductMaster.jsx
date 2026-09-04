@@ -33,12 +33,12 @@ export default function ProductMaster() {
 
   const categoryOptions = categories.map(c => ({
     value: String(c.catid ?? c.cat_name),
-    label: c.cat_name + (c.short_code ? ` (${c.short_code})` : '')
+    label: `${c.cat_name} (ID: ${c.catid}${c.short_code ? `, Code: ${c.short_code}` : ''})`
   }));
 
   const subcatOptions = subcategories.map(s => ({
     value: String(s.psubcatid ?? s.prod_sub_cat),
-    label: s.prod_sub_cat + (s.product_category ? ` [${s.product_category}]` : '')
+    label: `${s.prod_sub_cat} (ID: ${s.psubcatid}${s.product_category ? `, Parent: ${s.product_category}` : ''})`
   }));
 
   const brandOptions = brands.map(b => ({
@@ -55,8 +55,8 @@ export default function ProductMaster() {
     { name: 'product_name',        label: 'Product / Item Name', required: true },
     { name: 'part_code',           label: 'Part Code (PID)' },
     { name: 'item_code',           label: 'Item Code' },
-    { name: 'product_category_id', label: 'Category', type: 'select', options: categoryOptions },
-    { name: 'product_subcat_id',   label: 'Sub-Category', type: 'select', options: subcatOptions },
+    { name: 'product_category_id', label: 'Category ID', type: 'select', options: categoryOptions },
+    { name: 'product_subcat_id',   label: 'Sub-Category ID', type: 'select', options: subcatOptions },
     { name: 'brand_id',            label: 'Brand / Make', type: 'select', options: brandOptions },
     { name: 'model',               label: 'Model Name' },
     { name: 'hsn_code',            label: 'HSN Code' },

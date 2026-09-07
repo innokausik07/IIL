@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
-import { Plus, RefreshCw, Pencil, Ban, Search, X, Download, ChevronLeft, ChevronRight, CheckCircle2 } from 'lucide-react';
+import { Plus, RefreshCw, Pencil, Ban, Search, X, Download, ChevronLeft, ChevronRight, CheckCircle2, CheckCircle, XCircle, Trash2, ShieldCheck } from 'lucide-react';
 import { lookupPincode } from '../utils/pincodeLookup';
 
 /**
@@ -123,16 +123,71 @@ export default function MasterPage({ title, icon, apiPath, fields, columns }) {
     } catch (e) { toast.error('Network error'); }
   };
 
-  const handleExportCsv = () => {
-    if (list.length === 0) { toast.error('No data to export'); return; }
+  // Bulk Status Update (Activate / Deactivate)
+  const handleBulkStatus = async (status) => {
+    if (selectedIds.length === 0) return toast.error('Please select at least 1 record');
+    const statusText = status === 1 || status === '1' ? 'Active' : 'Inactive';
+    if (!window.confirm(`Set status to "${statusText}" for ${selectedIds.length} selected record(s)?`)) return;
+    try {
+      const res = await fetch(`${url}/bulk-status`, {
+        method: 'POST',
+        headers: hdr,
+        body: JSON.stringify({ ids: selectedIds, status })
+      });
+      const data = await res.json();
+      if (data.status === 'success') {
+        toast.success(data.message);
+        setSelectedIds([]);
+        fetchList();
+      } else {
+        toast.error(data.message || 'Bulk status update failed');
+      }
+    } catch (e) {
+      toast.error('Network error: ' + e.message);
+    }
+  };
+
+  // Bulk Delete / Remove
+  const handleBulkDelete = async () => {
+    if (selectedIds.length === 0) return toast.error('Please select at least 1 record');
+    if (!window.confirm(`Are you sure you want to delete ${selectedIds.length} selected record(s)?`)) return;
+    try {
+      const res = await fetch(`${url}/bulk-delete`, {
+        method: 'POST',
+        headers: hdr,
+        body: JSON.stringify({ ids: selectedIds })
+      });
+      const data = await res.json();
+      if (data.status === 'success') {
+        toast.success(data.message);
+        setSelectedIds([]);
+        fetchList();
+      } else {
+        toast.error(data.message || 'Bulk delete failed');
+      }
+    } catch (e) {
+      toast.error('Network error: ' + e.message);
+    }
+  };
+
+  const handleExportCsv = (onlySelected = false) => {
+    const exportData = onlySelected 
+      ? list.filter(row => {
+          const idKeys = ['sno', 'id', 'catid', 'psubcatid'];
+          const id = idKeys.map(k => row[k]).find(v => v != null);
+          return selectedIds.includes(id);
+        })
+      : list;
+
+    if (exportData.length === 0) { toast.error('No data to export'); return; }
     const headersCsv = columns.map(c => `"${c.label}"`).join(',');
-    const rowsCsv = list.map(row => columns.map(c => `"${(row[c.key] ?? '').toString().replace(/"/g, '""')}"`).join(',')).join('\n');
+    const rowsCsv = exportData.map(row => columns.map(c => `"${(row[c.key] ?? '').toString().replace(/"/g, '""')}"`).join(',')).join('\n');
     const blob = new Blob([headersCsv + '\n' + rowsCsv], { type: 'text/csv;charset=utf-8;' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = `${apiPath}_export.csv`;
+    a.download = `${apiPath}_${onlySelected ? 'selected_' : ''}export.csv`;
     a.click();
-    toast.success('Exported to CSV');
+    toast.success(`Exported ${exportData.length} records to CSV`);
   };
 
   // Filter list
@@ -166,6 +221,15 @@ export default function MasterPage({ title, icon, apiPath, fields, columns }) {
   const toggleSelectRow = (id) => {
     setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
   };
+
+  // Find first selected item object for quick edit
+  const firstSelectedRow = selectedIds.length === 1 
+    ? list.find(row => {
+        const idKeys = ['sno', 'id', 'catid', 'psubcatid'];
+        const id = idKeys.map(k => row[k]).find(v => v != null);
+        return id === selectedIds[0];
+      })
+    : null;
 
   return (
     <>
@@ -230,32 +294,58 @@ export default function MasterPage({ title, icon, apiPath, fields, columns }) {
           </div>
         </div>
 
-        {/* ── 3. Action Buttons Row (Identical to CCTV Audit Data) ────── */}
+        {/* ── 3. Dynamic Action Toolbar ─────────────────────────────── */}
         <div className="card" style={{ marginBottom: 12 }}>
-          <div className="card-body" style={{ padding: '10px 14px' }}>
-            <div className="btn-group">
-              <button className="btn btn-primary btn-sm" onClick={handleAddNew}>
-                <Plus size={13} /> Add Record
-              </button>
-              <button className="btn btn-secondary btn-sm" onClick={handleExportCsv}>
-                <Download size={13} /> Export CSV
-              </button>
-              <button className="btn btn-secondary btn-sm" onClick={fetchList}>
-                <RefreshCw size={13} className={fetching ? 'spin' : ''} /> Refresh
-              </button>
+          <div className="card-body" style={{ padding: '10px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
+            <div className="btn-group" style={{ flexWrap: 'wrap', gap: 6 }}>
+              {/* Dynamic Action Buttons when items are selected */}
+              {selectedIds.length > 0 ? (
+                <>
+                  <button className="btn btn-success btn-sm" onClick={() => handleBulkStatus(1)} title="Activate Selected">
+                    <CheckCircle size={13} /> Activate ({selectedIds.length})
+                  </button>
+                  <button className="btn btn-warning btn-sm" onClick={() => handleBulkStatus(0)} title="Deactivate Selected">
+                    <XCircle size={13} /> Deactivate ({selectedIds.length})
+                  </button>
+                  {firstSelectedRow && (
+                    <button className="btn btn-info btn-sm" onClick={() => handleEdit(firstSelectedRow)} title="Edit Selected">
+                      <Pencil size={13} /> Edit Selected
+                    </button>
+                  )}
+                  <button className="btn btn-secondary btn-sm" onClick={() => handleExportCsv(true)} title="Export Selected CSV">
+                    <Download size={13} /> Export Selected ({selectedIds.length})
+                  </button>
+                  <button className="btn btn-danger btn-sm" onClick={handleBulkDelete} title="Delete Selected">
+                    <Trash2 size={13} /> Delete ({selectedIds.length})
+                  </button>
+                  <button className="btn btn-secondary btn-sm" onClick={() => setSelectedIds([])} title="Clear Selection">
+                    <X size={13} /> Deselect All
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button className="btn btn-primary btn-sm" onClick={handleAddNew}>
+                    <Plus size={13} /> Add Record
+                  </button>
+                  <button className="btn btn-secondary btn-sm" onClick={() => handleExportCsv(false)}>
+                    <Download size={13} /> Export All CSV
+                  </button>
+                  <button className="btn btn-secondary btn-sm" onClick={fetchList}>
+                    <RefreshCw size={13} className={fetching ? 'spin' : ''} /> Refresh
+                  </button>
+                </>
+              )}
             </div>
+
+            {selectedIds.length > 0 && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span className="badge badge-ack" style={{ fontSize: 12, padding: '5px 10px' }}>
+                  {selectedIds.length} of {totalRecords} Selected
+                </span>
+              </div>
+            )}
           </div>
         </div>
-
-        {/* Selection bar */}
-        {selectedIds.length > 0 && (
-          <div className="selected-bar">
-            <span>{selectedIds.length} record{selectedIds.length > 1 ? 's' : ''} selected</span>
-            <button className="btn btn-secondary btn-sm" onClick={() => setSelectedIds([])}>
-              <X size={12} /> Deselect All
-            </button>
-          </div>
-        )}
 
         {/* ── 4. Data Table (Identical to CCTV Audit Data) ───────────── */}
         <div className="table-container">

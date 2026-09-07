@@ -186,6 +186,24 @@ router.post('/purchase-orders/:id/approve', async (req, res) => {
   }
 });
 
+// 4b. POST /api/procurement/purchase-orders/bulk-approve
+router.post('/purchase-orders/bulk-approve', async (req, res) => {
+  try {
+    const { ids } = req.body;
+    if (!Array.isArray(ids) || ids.length === 0) return res.status(400).json({ status: 'error', message: 'No POs selected' });
+    const marks = ids.map(() => '?').join(',');
+    await db.execute(
+      `UPDATE purchase_order 
+       SET status = 'Approved', approved_by = ?, approved_at = NOW() 
+       WHERE id IN (${marks})`,
+      [req.user?.id || null, ...ids]
+    );
+    res.json({ status: 'success', message: `${ids.length} Purchase Orders approved successfully!` });
+  } catch (err) {
+    res.status(500).json({ status: 'error', message: err.sqlMessage || err.message });
+  }
+});
+
 // 5. POST /api/procurement/purchase-orders/:id/cancel — Cancel PO
 router.post('/purchase-orders/:id/cancel', async (req, res) => {
   try {
@@ -194,6 +212,22 @@ router.post('/purchase-orders/:id/cancel', async (req, res) => {
       [req.params.id]
     );
     res.json({ status: 'success', message: 'Purchase Order cancelled.' });
+  } catch (err) {
+    res.status(500).json({ status: 'error', message: err.sqlMessage || err.message });
+  }
+});
+
+// 5b. POST /api/procurement/purchase-orders/bulk-cancel
+router.post('/purchase-orders/bulk-cancel', async (req, res) => {
+  try {
+    const { ids } = req.body;
+    if (!Array.isArray(ids) || ids.length === 0) return res.status(400).json({ status: 'error', message: 'No POs selected' });
+    const marks = ids.map(() => '?').join(',');
+    await db.execute(
+      `UPDATE purchase_order SET status = 'Cancelled' WHERE id IN (${marks})`,
+      ids
+    );
+    res.json({ status: 'success', message: `${ids.length} Purchase Orders cancelled.` });
   } catch (err) {
     res.status(500).json({ status: 'error', message: err.sqlMessage || err.message });
   }

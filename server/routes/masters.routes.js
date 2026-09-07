@@ -88,6 +88,37 @@ const makeRoutes = (table, idCol, insertCols) => {
       res.status(500).json({ status: 'error', message: e.sqlMessage || e.message });
     }
   });
+
+  // POST bulk status update
+  router.post(`/${table}/bulk-status`, async (req, res) => {
+    try {
+      const { ids, status } = req.body;
+      if (!Array.isArray(ids) || ids.length === 0) return res.status(400).json({ status: 'error', message: 'No records selected' });
+      const existingCols = await getExistingColumns(table);
+      const statusCol = existingCols && existingCols.has('status') ? 'status' : (existingCols && existingCols.has('status_id') ? 'status_id' : null);
+      if (!statusCol) return res.status(400).json({ status: 'error', message: 'Table has no status column' });
+      
+      const stVal = statusCol === 'status' ? (status === 1 || status === '1' || status === 'Active' || status === 'Y' || status === 'A' ? '1' : '0') : (status === 1 || status === '1' ? 1 : 0);
+      const marks = ids.map(() => '?').join(',');
+      await db.execute(`UPDATE ${table} SET ${statusCol} = ? WHERE ${idCol} IN (${marks})`, [stVal, ...ids]);
+      res.json({ status: 'success', message: `${ids.length} records updated to ${stVal === '1' || stVal === 1 ? 'Active' : 'Inactive'}!` });
+    } catch (e) {
+      res.status(500).json({ status: 'error', message: e.sqlMessage || e.message });
+    }
+  });
+
+  // POST bulk delete
+  router.post(`/${table}/bulk-delete`, async (req, res) => {
+    try {
+      const { ids } = req.body;
+      if (!Array.isArray(ids) || ids.length === 0) return res.status(400).json({ status: 'error', message: 'No records selected' });
+      const marks = ids.map(() => '?').join(',');
+      await db.execute(`DELETE FROM ${table} WHERE ${idCol} IN (${marks})`, ids);
+      res.json({ status: 'success', message: `${ids.length} records deleted successfully!` });
+    } catch (e) {
+      res.status(500).json({ status: 'error', message: e.sqlMessage || e.message });
+    }
+  });
 };
 
 

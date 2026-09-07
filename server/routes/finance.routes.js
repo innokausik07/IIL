@@ -153,6 +153,52 @@ router.put('/invoices/:id/cancel', async (req, res) => {
   }
 });
 
+// POST /api/finance/invoices/bulk-send
+router.post('/invoices/bulk-send', async (req, res) => {
+  try {
+    const { ids } = req.body;
+    if (!Array.isArray(ids) || ids.length === 0) return res.status(400).json({ status: 'error', message: 'No invoices selected' });
+    const marks = ids.map(() => '?').join(',');
+    await db.execute(`UPDATE invoice_master SET status='Sent' WHERE id IN (${marks}) AND status='Draft'`, ids);
+    res.json({ status: 'success', message: `${ids.length} Invoices marked as Sent!` });
+  } catch (e) {
+    res.status(500).json({ status: 'error', message: e.sqlMessage || e.message });
+  }
+});
+
+// POST /api/finance/invoices/bulk-pay
+router.post('/invoices/bulk-pay', async (req, res) => {
+  const conn = await db.getConnection();
+  try {
+    await conn.beginTransaction();
+    const { ids, mode_id, payment_date = new Date().toISOString().slice(0, 10), ref_no, remarks } = req.body;
+    if (!Array.isArray(ids) || ids.length === 0) return res.status(400).json({ status: 'error', message: 'No invoices selected' });
+
+    for (const id of ids) {
+      const [[inv]] = await conn.execute(`SELECT * FROM invoice_master WHERE id = ?`, [id]);
+      if (inv && inv.status !== 'Paid') {
+        const balance = parseFloat(inv.total) - parseFloat(inv.paid_amount || 0);
+        if (balance > 0) {
+          const payment_no = await nextCode('PAY', 'payment_master', 'payment_no');
+          await conn.execute(
+            `INSERT INTO payment_master (payment_no, client_id, invoice_id, amount, mode_id, payment_date, ref_no, remarks, created_by)
+             VALUES (?,?,?,?,?,?,?,?,?)`,
+            [payment_no, inv.client_id, id, balance, mode_id || null, payment_date, ref_no || 'Bulk Settlement', remarks || 'Settled via dynamic action bar', req.user?.id || null]
+          );
+          await conn.execute(`UPDATE invoice_master SET paid_amount = total, status = 'Paid' WHERE id = ?`, [id]);
+        }
+      }
+    }
+    await conn.commit();
+    res.json({ status: 'success', message: `${ids.length} Invoices marked as Paid!` });
+  } catch (e) {
+    await conn.rollback();
+    res.status(500).json({ status: 'error', message: e.sqlMessage || e.message });
+  } finally {
+    conn.release();
+  }
+});
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // PAYMENTS
 // ═══════════════════════════════════════════════════════════════════════════════

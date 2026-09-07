@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { ShoppingCart, Plus, RefreshCw, Search, CheckCircle, XCircle, FileText, PackageCheck, X, Building2 } from 'lucide-react';
+import { ShoppingCart, Plus, RefreshCw, Search, CheckCircle, XCircle, FileText, PackageCheck, X, Building2, Download, Printer, Trash2 } from 'lucide-react';
 import '../styles/erp.css';
 
 export default function PurchaseOrders() {
@@ -11,6 +11,7 @@ export default function PurchaseOrders() {
   const [search, setSearch]             = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [plants, setPlants]             = useState([]);
+  const [selectedIds, setSelectedIds]   = useState([]);
 
   // GRN Inward Modal State
   const [showGrnModal, setShowGrnModal]   = useState(false);
@@ -79,6 +80,28 @@ export default function PurchaseOrders() {
     }
   };
 
+  const handleBulkApprove = async () => {
+    if (selectedIds.length === 0) return toast.error('Please select at least 1 PO');
+    if (!confirm(`Approve ${selectedIds.length} selected Purchase Orders?`)) return;
+    try {
+      const res = await fetch(`/api/procurement/purchase-orders/bulk-approve`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ ids: selectedIds })
+      });
+      const data = await res.json();
+      if (data.status === 'success') {
+        toast.success(data.message);
+        setSelectedIds([]);
+        fetchOrders();
+      } else {
+        toast.error(data.message);
+      }
+    } catch {
+      toast.error('Error in bulk approval');
+    }
+  };
+
   const handleCancel = async (id, poNo) => {
     if (!confirm(`Cancel Purchase Order ${poNo}?`)) return;
     try {
@@ -93,6 +116,56 @@ export default function PurchaseOrders() {
     } catch {
       toast.error('Error cancelling PO');
     }
+  };
+
+  const handleBulkCancel = async () => {
+    if (selectedIds.length === 0) return toast.error('Please select at least 1 PO');
+    if (!confirm(`Cancel ${selectedIds.length} selected Purchase Orders?`)) return;
+    try {
+      const res = await fetch(`/api/procurement/purchase-orders/bulk-cancel`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ ids: selectedIds })
+      });
+      const data = await res.json();
+      if (data.status === 'success') {
+        toast.success(data.message);
+        setSelectedIds([]);
+        fetchOrders();
+      } else {
+        toast.error(data.message);
+      }
+    } catch {
+      toast.error('Error cancelling selected POs');
+    }
+  };
+
+  const handleExportCsv = (onlySelected = false) => {
+    const exportData = onlySelected 
+      ? orders.filter(o => selectedIds.includes(o.id))
+      : orders;
+
+    if (exportData.length === 0) { toast.error('No data to export'); return; }
+    const cols = [
+      { key: 'po_no', label: 'PO Number' },
+      { key: 'po_date', label: 'PO Date' },
+      { key: 'vendor_name', label: 'Vendor' },
+      { key: 'plant_name', label: 'Receiving Plant' },
+      { key: 'total_qty_ordered', label: 'Qty Ordered' },
+      { key: 'total_qty_received', label: 'Qty Received' },
+      { key: 'subtotal', label: 'Subtotal' },
+      { key: 'tax_amount', label: 'Tax' },
+      { key: 'total_amount', label: 'Total Amount' },
+      { key: 'status', label: 'Status' }
+    ];
+    const headersCsv = cols.map(c => `"${c.label}"`).join(',');
+    const rowsCsv = exportData.map(row => cols.map(c => `"${(row[c.key] ?? '').toString().replace(/"/g, '""')}"`).join(',')).join('\n');
+    const blob = new Blob([headersCsv + '\n' + rowsCsv], { type: 'text/csv;charset=utf-8;' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `purchase_orders_${onlySelected ? 'selected_' : ''}export.csv`;
+    a.click();
+    toast.success(`Exported ${exportData.length} records to CSV`);
   };
 
   // Open GRN Modal & load PO lines
@@ -194,6 +267,20 @@ export default function PurchaseOrders() {
     );
   });
 
+  const toggleSelectAll = (e) => {
+    if (e.target.checked) {
+      setSelectedIds(filtered.map(p => p.id));
+    } else {
+      setSelectedIds([]);
+    }
+  };
+
+  const toggleSelectRow = (id) => {
+    setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
+
+  const firstSelectedPo = selectedIds.length === 1 ? orders.find(o => o.id === selectedIds[0]) : null;
+
   const getStatusBadge = (status) => {
     switch (status) {
       case 'Approved':           return <span className="erp-badge erp-badge-success">Approved</span>;
@@ -253,6 +340,58 @@ export default function PurchaseOrders() {
         </div>
       </div>
 
+      {/* Dynamic Action Bar */}
+      <div className="erp-card" style={{ padding: '12px 18px', marginBottom: '14px', background: selectedIds.length > 0 ? '#eff6ff' : '#ffffff', borderColor: selectedIds.length > 0 ? '#bfdbfe' : '#e2e8f0' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+            {selectedIds.length > 0 ? (
+              <>
+                <button onClick={handleBulkApprove} className="erp-btn-primary" style={{ background: '#10b981', padding: '6px 14px', fontSize: '13px' }}>
+                  <CheckCircle size={14} /> Approve ({selectedIds.length})
+                </button>
+                {firstSelectedPo && (firstSelectedPo.status === 'Approved' || firstSelectedPo.status === 'Partially Received') && (
+                  <button onClick={() => handleOpenGrnModal(firstSelectedPo)} className="erp-btn-primary" style={{ background: '#4f46e5', padding: '6px 14px', fontSize: '13px' }}>
+                    <PackageCheck size={14} /> Receive GRN Inward
+                  </button>
+                )}
+                {firstSelectedPo && (
+                  <button onClick={() => navigate(`/procurement/purchase-orders/${firstSelectedPo.id}/print`)} className="erp-btn-ghost" style={{ padding: '6px 14px', fontSize: '13px' }}>
+                    <Printer size={14} /> Print Selected
+                  </button>
+                )}
+                <button onClick={() => handleExportCsv(true)} className="erp-btn-ghost" style={{ padding: '6px 14px', fontSize: '13px' }}>
+                  <Download size={14} /> Export Selected ({selectedIds.length})
+                </button>
+                <button onClick={handleBulkCancel} className="erp-btn-danger" style={{ padding: '6px 14px', fontSize: '13px' }}>
+                  <XCircle size={14} /> Cancel Selected ({selectedIds.length})
+                </button>
+                <button onClick={() => setSelectedIds([])} className="erp-btn-ghost" style={{ padding: '6px 14px', fontSize: '13px' }}>
+                  <X size={14} /> Deselect All
+                </button>
+              </>
+            ) : (
+              <>
+                <button onClick={() => navigate('/procurement/purchase-orders/new')} className="erp-btn-primary" style={{ padding: '6px 14px', fontSize: '13px' }}>
+                  <Plus size={14} /> Create Purchase Order
+                </button>
+                <button onClick={() => handleExportCsv(false)} className="erp-btn-ghost" style={{ padding: '6px 14px', fontSize: '13px' }}>
+                  <Download size={14} /> Export All CSV
+                </button>
+                <button onClick={fetchOrders} className="erp-btn-ghost" style={{ padding: '6px 14px', fontSize: '13px' }}>
+                  <RefreshCw size={14} /> Refresh
+                </button>
+              </>
+            )}
+          </div>
+
+          {selectedIds.length > 0 && (
+            <div style={{ fontWeight: 600, color: '#1e40af', fontSize: '13px' }}>
+              {selectedIds.length} of {filtered.length} PO(s) selected
+            </div>
+          )}
+        </div>
+      </div>
+
       {/* Filter Bar */}
       <div className="erp-card" style={{ padding: '14px 18px', marginBottom: '18px' }}>
         <div style={{ display: 'flex', gap: '14px', flexWrap: 'wrap', alignItems: 'center' }}>
@@ -297,6 +436,13 @@ export default function PurchaseOrders() {
             <table className="erp-table">
               <thead>
                 <tr>
+                  <th style={{ width: '38px', textAlign: 'center' }}>
+                    <input
+                      type="checkbox"
+                      checked={filtered.length > 0 && selectedIds.length === filtered.length}
+                      onChange={toggleSelectAll}
+                    />
+                  </th>
                   <th>PO #</th>
                   <th>PO Date</th>
                   <th>Vendor</th>
@@ -310,74 +456,83 @@ export default function PurchaseOrders() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map(po => (
-                  <tr key={po.id}>
-                    <td>
-                      <strong style={{ color: '#6366f1', fontFamily: 'monospace' }}>{po.po_no}</strong>
-                    </td>
-                    <td>{po.po_date ? new Date(po.po_date).toLocaleDateString('en-IN') : '—'}</td>
-                    <td>
-                      <strong style={{ color: '#0f172a' }}>{po.vendor_name || 'Vendor'}</strong>
-                      {po.vendor_phone && <div style={{ fontSize: '11px', color: '#64748b' }}>📞 {po.vendor_phone}</div>}
-                    </td>
-                    <td>
-                      <span style={{ fontSize: '12px', color: '#334155' }}>{po.plant_name || '—'}</span>
-                    </td>
-                    <td>
-                      <span style={{ fontSize: '12px', fontWeight: 600 }}>{po.line_count || 0} line(s)</span>
-                      <div style={{ fontSize: '11px', color: '#64748b' }}>
-                        Ord: {po.total_qty_ordered || 0} | Rec: {po.total_qty_received || 0}
-                      </div>
-                    </td>
-                    <td>₹{parseFloat(po.subtotal || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
-                    <td>₹{parseFloat(po.tax_amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
-                    <td>
-                      <strong style={{ color: '#059669' }}>
-                        ₹{parseFloat(po.total_amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                      </strong>
-                    </td>
-                    <td>{getStatusBadge(po.status)}</td>
-                    <td style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>
-                      <button
-                        onClick={() => navigate(`/procurement/purchase-orders/${po.id}/print`)}
-                        className="erp-btn-ghost erp-btn-sm"
-                        style={{ color: '#4f46e5', marginRight: '4px' }}
-                        title="Print Purchase Order"
-                      >
-                        <FileText size={13} /> Print
-                      </button>
-
-                      {/* 1-Click Receive GRN button when Approved or Partially Received */}
-                      {(po.status === 'Approved' || po.status === 'Partially Received') && (
+                {filtered.map(po => {
+                  const isSelected = selectedIds.includes(po.id);
+                  return (
+                    <tr key={po.id} style={{ background: isSelected ? '#f0fdf4' : undefined }}>
+                      <td style={{ textAlign: 'center' }}>
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => toggleSelectRow(po.id)}
+                        />
+                      </td>
+                      <td>
+                        <strong style={{ color: '#6366f1', fontFamily: 'monospace' }}>{po.po_no}</strong>
+                      </td>
+                      <td>{po.po_date ? new Date(po.po_date).toLocaleDateString('en-IN') : '—'}</td>
+                      <td>
+                        <strong style={{ color: '#0f172a' }}>{po.vendor_name || 'Vendor'}</strong>
+                        {po.vendor_phone && <div style={{ fontSize: '11px', color: '#64748b' }}>📞 {po.vendor_phone}</div>}
+                      </td>
+                      <td>
+                        <span style={{ fontSize: '12px', color: '#334155' }}>{po.plant_name || '—'}</span>
+                      </td>
+                      <td>
+                        <span style={{ fontSize: '12px', fontWeight: 600 }}>{po.line_count || 0} line(s)</span>
+                        <div style={{ fontSize: '11px', color: '#64748b' }}>
+                          Ord: {po.total_qty_ordered || 0} | Rec: {po.total_qty_received || 0}
+                        </div>
+                      </td>
+                      <td>₹{parseFloat(po.subtotal || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                      <td>₹{parseFloat(po.tax_amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                      <td>
+                        <strong style={{ color: '#059669' }}>
+                          ₹{parseFloat(po.total_amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                        </strong>
+                      </td>
+                      <td>{getStatusBadge(po.status)}</td>
+                      <td style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>
                         <button
-                          onClick={() => handleOpenGrnModal(po)}
-                          className="erp-btn-sm"
-                          style={{
-                            background: '#4f46e5',
-                            color: '#ffffff',
-                            marginRight: '4px',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '4px',
-                            padding: '4px 8px',
-                            borderRadius: '4px',
-                            border: 'none',
-                            cursor: 'pointer',
-                            fontWeight: '600'
-                          }}
-                          title="Generate GRN Inward & Auto-Create Assets"
-                        >
-                          <PackageCheck size={13} /> Receive GRN
-                        </button>
-                      )}
-
-                      {po.status === 'Draft' && (
-                        <button
-                          onClick={() => handleApprove(po.id, po.po_no)}
+                          onClick={() => navigate(`/procurement/purchase-orders/${po.id}/print`)}
                           className="erp-btn-ghost erp-btn-sm"
-                          style={{ color: '#10b981', marginRight: '4px' }}
-                          title="Approve PO"
+                          style={{ color: '#4f46e5', marginRight: '4px' }}
+                          title="Print Purchase Order"
                         >
+                          <FileText size={13} /> Print
+                        </button>
+
+                        {/* 1-Click Receive GRN button when Approved or Partially Received */}
+                        {(po.status === 'Approved' || po.status === 'Partially Received') && (
+                          <button
+                            onClick={() => handleOpenGrnModal(po)}
+                            className="erp-btn-sm"
+                            style={{
+                              background: '#4f46e5',
+                              color: '#ffffff',
+                              marginRight: '4px',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              padding: '4px 8px',
+                              borderRadius: '4px',
+                              border: 'none',
+                              cursor: 'pointer',
+                              fontWeight: '600'
+                            }}
+                            title="Generate GRN Inward & Auto-Create Assets"
+                          >
+                            <PackageCheck size={13} /> Receive GRN
+                          </button>
+                        )}
+
+                        {po.status === 'Draft' && (
+                          <button
+                            onClick={() => handleApprove(po.id, po.po_no)}
+                            className="erp-btn-ghost erp-btn-sm"
+                            style={{ color: '#10b981', marginRight: '4px' }}
+                            title="Approve PO"
+                          >
                           <CheckCircle size={13} /> Approve
                         </button>
                       )}
@@ -391,9 +546,10 @@ export default function PurchaseOrders() {
                           <XCircle size={13} />
                         </button>
                       )}
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

@@ -26,6 +26,7 @@ export default function InvoiceMaster() {
   const [selInvoice, setSelInvoice] = useState(null);
   const [payModes, setPayModes]   = useState([]);
   const [payForm, setPayForm]     = useState({ amount:'', mode_id:'', payment_date: new Date().toISOString().slice(0,10), ref_no:'', remarks:'' });
+  const [selectedIds, setSelectedIds] = useState([]);
 
   const blankForm = { client_id:'', order_id:'', invoice_type_id:'', invoice_date: new Date().toISOString().slice(0,10), due_date:'', billing_period_from:'', billing_period_to:'', lines:[] };
   const [form, setForm] = useState(blankForm);
@@ -99,6 +100,73 @@ export default function InvoiceMaster() {
     data.status === 'success' ? (toast.success('Invoice sent!'), load()) : toast.error(data.message);
   };
 
+  const handleBulkSend = async () => {
+    if (selectedIds.length === 0) return toast.error('Please select at least 1 invoice');
+    try {
+      const res = await fetch('/api/finance/invoices/bulk-send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: selectedIds })
+      });
+      const data = await res.json();
+      if (data.status === 'success') {
+        toast.success(data.message);
+        setSelectedIds([]);
+        load();
+      } else {
+        toast.error(data.message);
+      }
+    } catch {
+      toast.error('Bulk send failed');
+    }
+  };
+
+  const handleBulkPay = async () => {
+    if (selectedIds.length === 0) return toast.error('Please select at least 1 invoice');
+    if (!confirm(`Mark ${selectedIds.length} invoice(s) as Fully Paid?`)) return;
+    try {
+      const res = await fetch('/api/finance/invoices/bulk-pay', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: selectedIds, mode_id: payModes[0]?.id || 1 })
+      });
+      const data = await res.json();
+      if (data.status === 'success') {
+        toast.success(data.message);
+        setSelectedIds([]);
+        load();
+      } else {
+        toast.error(data.message);
+      }
+    } catch {
+      toast.error('Bulk payment failed');
+    }
+  };
+
+  const handleExportCsv = (onlySelected = false) => {
+    const exportData = onlySelected ? invoices.filter(i => selectedIds.includes(i.id)) : invoices;
+    if (exportData.length === 0) return toast.error('No data to export');
+    const cols = [
+      { key: 'invoice_no', label: 'Invoice No' },
+      { key: 'client_name', label: 'Client' },
+      { key: 'order_no', label: 'Order No' },
+      { key: 'invoice_date', label: 'Invoice Date' },
+      { key: 'due_date', label: 'Due Date' },
+      { key: 'total', label: 'Total Amount' },
+      { key: 'paid_amount', label: 'Paid Amount' },
+      { key: 'balance_due', label: 'Balance Due' },
+      { key: 'status', label: 'Status' }
+    ];
+    const headersCsv = cols.map(c => `"${c.label}"`).join(',');
+    const rowsCsv = exportData.map(row => cols.map(c => `"${(row[c.key] ?? '').toString().replace(/"/g, '""')}"`).join(',')).join('\n');
+    const blob = new Blob([headersCsv + '\n' + rowsCsv], { type: 'text/csv;charset=utf-8;' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `invoices_${onlySelected ? 'selected_' : ''}export.csv`;
+    a.click();
+    toast.success(`Exported ${exportData.length} invoices to CSV`);
+  };
+
   const openPayment = inv => { setSelInvoice(inv); setPayForm({ amount: inv.balance_due, mode_id:'', payment_date: new Date().toISOString().slice(0,10), ref_no:'', remarks:'' }); setShowPayModal(true); };
 
   const submitPayment = async () => {
@@ -118,6 +186,15 @@ export default function InvoiceMaster() {
      (i.client_name||'').toLowerCase().includes(search.toLowerCase()))
   );
 
+  const toggleSelectAll = e => {
+    if (e.target.checked) setSelectedIds(filtered.map(i => i.id));
+    else setSelectedIds([]);
+  };
+
+  const toggleSelectRow = id => {
+    setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
+
   const sb = status => {
     const c = STATUS_COLORS[status] || { bg:'#f1f5f9', color:'#475569' };
     return <span className="erp-badge" style={{ background:c.bg, color:c.color }}>{status}</span>;
@@ -134,9 +211,12 @@ export default function InvoiceMaster() {
           <h1 className="erp-page-title">Invoice Management</h1>
           <p className="erp-page-sub">Create, send and track rental invoices</p>
         </div>
-        <button className="erp-btn-primary" onClick={() => { setShowForm(true); setForm(blankForm); }}>
-          <i className="fa fa-plus" /> New Invoice
-        </button>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button className="erp-btn-ghost" onClick={load}><i className="fa fa-refresh" /> Refresh</button>
+          <button className="erp-btn-primary" onClick={() => { setShowForm(true); setForm(blankForm); }}>
+            <i className="fa fa-plus" /> New Invoice
+          </button>
+        </div>
       </div>
 
       {/* Finance Stats */}
@@ -152,6 +232,73 @@ export default function InvoiceMaster() {
             <div className="erp-stat-label">{s.label}</div>
           </div>
         ))}
+      </div>
+
+      {/* Dynamic Action Toolbar */}
+      <div className="erp-card" style={{ padding: '12px 18px', marginBottom: '14px', background: selectedIds.length > 0 ? '#eff6ff' : '#ffffff', borderColor: selectedIds.length > 0 ? '#bfdbfe' : '#e2e8f0' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+            {selectedIds.length > 0 ? (
+              <>
+                <button
+                  className="erp-btn-primary"
+                  style={{ background: '#16a34a', padding: '6px 14px', fontSize: '13px' }}
+                  onClick={handleBulkPay}
+                >
+                  <i className="fa fa-money" /> Mark Paid ({selectedIds.length})
+                </button>
+                <button
+                  className="erp-btn-primary"
+                  style={{ background: '#6366f1', padding: '6px 14px', fontSize: '13px' }}
+                  onClick={handleBulkSend}
+                >
+                  <i className="fa fa-send" /> Send ({selectedIds.length})
+                </button>
+                {selectedIds.length === 1 && (
+                  <button
+                    className="erp-btn-ghost"
+                    style={{ padding: '6px 14px', fontSize: '13px' }}
+                    onClick={() => nav(`/finance/invoices/${selectedIds[0]}/print`)}
+                  >
+                    <i className="fa fa-print" /> Print Invoice
+                  </button>
+                )}
+                <button
+                  className="erp-btn-ghost"
+                  style={{ padding: '6px 14px', fontSize: '13px' }}
+                  onClick={() => handleExportCsv(true)}
+                >
+                  <i className="fa fa-download" /> Export Selected ({selectedIds.length})
+                </button>
+                <button
+                  className="erp-btn-ghost"
+                  style={{ padding: '6px 14px', fontSize: '13px' }}
+                  onClick={() => setSelectedIds([])}
+                >
+                  <i className="fa fa-times" /> Deselect All
+                </button>
+              </>
+            ) : (
+              <>
+                <button className="erp-btn-primary" style={{ padding: '6px 14px', fontSize: '13px' }} onClick={() => { setShowForm(true); setForm(blankForm); }}>
+                  <i className="fa fa-plus" /> New Invoice
+                </button>
+                <button className="erp-btn-ghost" style={{ padding: '6px 14px', fontSize: '13px' }} onClick={() => handleExportCsv(false)}>
+                  <i className="fa fa-download" /> Export All CSV
+                </button>
+                <button className="erp-btn-ghost" style={{ padding: '6px 14px', fontSize: '13px' }} onClick={load}>
+                  <i className="fa fa-refresh" /> Refresh
+                </button>
+              </>
+            )}
+          </div>
+
+          {selectedIds.length > 0 && (
+            <div style={{ fontWeight: 600, color: '#1e40af', fontSize: '13px' }}>
+              {selectedIds.length} of {filtered.length} Invoice(s) selected
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Toolbar */}
@@ -170,46 +317,63 @@ export default function InvoiceMaster() {
         {loading ? <div className="erp-loader"><div className="erp-spinner" /></div> : (
           <table className="erp-table">
             <thead>
-              <tr><th>Invoice No</th><th>Client</th><th>Order No</th><th>Invoice Date</th><th>Due Date</th><th>Total</th><th>Paid</th><th>Balance</th><th>Status</th><th>Actions</th></tr>
+              <tr>
+                <th style={{ width: '38px', textAlign: 'center' }}>
+                  <input
+                    type="checkbox"
+                    checked={filtered.length > 0 && selectedIds.length === filtered.length}
+                    onChange={toggleSelectAll}
+                  />
+                </th>
+                <th>Invoice No</th><th>Client</th><th>Order No</th><th>Invoice Date</th><th>Due Date</th><th>Total</th><th>Paid</th><th>Balance</th><th>Status</th><th>Actions</th>
+              </tr>
             </thead>
             <tbody>
               {filtered.length === 0 ? (
-                <tr><td colSpan={10} className="erp-empty">No invoices found.</td></tr>
-              ) : filtered.map(i => (
-                <tr key={i.id}>
-                  <td><span className="erp-code">{i.invoice_no}</span></td>
-                  <td><div className="erp-cell-main">{i.client_name}</div></td>
-                  <td>{i.order_no||'—'}</td>
-                  <td>{i.invoice_date?.slice(0,10)||'—'}</td>
-                  <td style={{ color: i.status==='Overdue'?'#dc2626':'' }}>{i.due_date?.slice(0,10)||'—'}</td>
-                  <td className="erp-amount">₹{Number(i.total||0).toLocaleString('en-IN')}</td>
-                  <td style={{ color:'#16a34a', fontWeight:600 }}>₹{Number(i.paid_amount||0).toLocaleString('en-IN')}</td>
-                  <td style={{ color: parseFloat(i.balance_due)>0?'#dc2626':'#16a34a', fontWeight:600 }}>
-                    ₹{Number(i.balance_due||0).toLocaleString('en-IN')}
-                  </td>
-                  <td>{sb(i.status)}</td>
-                  <td>
-                    {i.status === 'Draft' && (
-                      <button className="erp-btn-icon" style={{ color:'#6366f1' }} title="Send Invoice" onClick={() => sendInvoice(i.id)}>
-                        <i className="fa fa-send" />
+                <tr><td colSpan={11} className="erp-empty">No invoices found.</td></tr>
+              ) : filtered.map(i => {
+                const isSelected = selectedIds.includes(i.id);
+                return (
+                  <tr key={i.id} style={{ background: isSelected ? '#f0fdf4' : undefined }}>
+                    <td style={{ textAlign: 'center' }}>
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => toggleSelectRow(i.id)}
+                      />
+                    </td>
+                    <td><span className="erp-code">{i.invoice_no}</span></td>
+                    <td><div className="erp-cell-main">{i.client_name}</div></td>
+                    <td>{i.order_no||'—'}</td>
+                    <td>{i.invoice_date?.slice(0,10)||'—'}</td>
+                    <td style={{ color: i.status==='Overdue'?'#dc2626':'' }}>{i.due_date?.slice(0,10)||'—'}</td>
+                    <td className="erp-amount">₹{Number(i.total||0).toLocaleString('en-IN')}</td>
+                    <td style={{ color:'#16a34a', fontWeight:600 }}>₹{Number(i.paid_amount||0).toLocaleString('en-IN')}</td>
+                    <td style={{ color: parseFloat(i.balance_due)>0?'#dc2626':'#16a34a', fontWeight:600 }}>
+                      ₹{Number(i.balance_due||0).toLocaleString('en-IN')}
+                    </td>
+                    <td>{sb(i.status)}</td>
+                    <td>
+                      {i.status === 'Draft' && (
+                        <button className="erp-btn-icon" style={{ color:'#6366f1' }} title="Send Invoice" onClick={() => sendInvoice(i.id)}>
+                          <i className="fa fa-send" />
+                        </button>
+                      )}
+                      {['Sent','Partial'].includes(i.status) && parseFloat(i.balance_due) > 0 && (
+                        <button className="erp-btn-icon" style={{ color:'#16a34a' }} title="Record Payment" onClick={() => openPayment(i)}>
+                          <i className="fa fa-money" />
+                        </button>
+                      )}
+                      <button className="erp-btn-icon" title="Print Tax Invoice" onClick={() => nav(`/finance/invoices/${i.id}/print`)} style={{ color: '#059669' }}>
+                        <i className="fa fa-print" />
                       </button>
-                    )}
-                    {['Sent','Partial'].includes(i.status) && parseFloat(i.balance_due) > 0 && (
-                      <button className="erp-btn-icon" style={{ color:'#16a34a' }} title="Record Payment" onClick={() => openPayment(i)}>
-                        <i className="fa fa-money" />
+                      <button className="erp-btn-icon" title="View Detail" onClick={() => nav(`/finance/invoices/${i.id}/print`)}>
+                        <i className="fa fa-eye" />
                       </button>
-                    )}
-                    <button className="erp-btn-icon" title="Print Tax Invoice" onClick={() => nav(`/finance/invoices/${i.id}/print`)} style={{ color: '#059669' }}>
-                      <i className="fa fa-print" />
-                    </button>
-                    <button className="erp-btn-icon" title="View Detail" onClick={() => nav(`/finance/invoices/${i.id}/print`)}>
-                      <i className="fa fa-eye" />
-                    </button>
-                  </td>
-                </tr>
-
-
-              ))}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         )}

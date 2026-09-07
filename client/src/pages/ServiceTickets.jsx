@@ -30,6 +30,7 @@ export default function ServiceTickets() {
   const [loading, setLoading]       = useState(false);
   const [search, setSearch]         = useState('');
   const [statusFilter, setStatus]   = useState('all');
+  const [selectedIds, setSelectedIds] = useState([]);
 
   // Create Modal
   const [showCreate, setShowCreate] = useState(false);
@@ -99,84 +100,213 @@ export default function ServiceTickets() {
       const res = await fetch('/api/maintenance/tickets', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...form, created_by: user?.id })
+        body: JSON.stringify({ ...form, opened_by: user?.id })
       });
       const data = await res.json();
       if (data.status === 'success') {
-        toast.success(`Ticket ${data.ticket_no} created!`);
+        toast.success(`Ticket ${data.ticket_no} created successfully!`);
         setShowCreate(false);
         setForm(blankForm);
         loadData();
       } else {
-        toast.error(data.message);
+        toast.error(data.message || 'Failed to create ticket');
       }
     } catch {
-      toast.error('Error creating ticket');
+      toast.error('Network error creating ticket');
     }
   };
 
-  const handleUpdateStatus = async () => {
+  const handleUpdateStatus = async (e) => {
+    e.preventDefault();
     if (!selTicket) return;
+
     try {
-      const res = await fetch(`/api/maintenance/tickets/${selTicket.id}/update-status`, {
+      const res = await fetch(`/api/maintenance/tickets/${selTicket.id}/status`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           status: newStatus,
+          action_notes: actionNote,
           technician_id: assignTech || null,
-          action_note: actionNote,
-          done_by: user?.id
+          user_id: user?.id
         })
       });
       const data = await res.json();
       if (data.status === 'success') {
-        toast.success(data.message);
+        toast.success('Ticket updated successfully!');
         setShowDetail(false);
         loadData();
       } else {
-        toast.error(data.message);
+        toast.error(data.message || 'Update failed');
       }
     } catch {
-      toast.error('Update failed');
+      toast.error('Error updating ticket');
     }
   };
 
+  // Bulk Status Update (e.g. Resolve/Close)
+  const handleBulkStatusChange = async (targetStatus) => {
+    if (selectedIds.length === 0) return toast.error('Please select at least 1 ticket');
+    try {
+      const promises = selectedIds.map(id =>
+        fetch(`/api/maintenance/tickets/${id}/status`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            status: targetStatus,
+            action_notes: `Bulk updated to ${targetStatus}`,
+            user_id: user?.id
+          })
+        })
+      );
+      await Promise.all(promises);
+      toast.success(`Updated ${selectedIds.length} tickets to ${targetStatus}!`);
+      setSelectedIds([]);
+      loadData();
+    } catch {
+      toast.error('Bulk update failed');
+    }
+  };
+
+  // Bulk CSV Export
+  const handleExportCsv = (onlySelected = false) => {
+    const exportData = onlySelected ? tickets.filter(t => selectedIds.includes(t.id)) : tickets;
+    if (exportData.length === 0) return toast.error('No data to export');
+    const cols = [
+      { key: 'ticket_no', label: 'Ticket No' },
+      { key: 'asset_code', label: 'Asset Code' },
+      { key: 'product_name', label: 'Product Name' },
+      { key: 'client_name', label: 'Client' },
+      { key: 'issue_type', label: 'Issue Type' },
+      { key: 'priority', label: 'Priority' },
+      { key: 'technician_name', label: 'Technician' },
+      { key: 'status', label: 'Status' }
+    ];
+    const headersCsv = cols.map(c => `"${c.label}"`).join(',');
+    const rowsCsv = exportData.map(row => cols.map(c => `"${(row[c.key] ?? '').toString().replace(/"/g, '""')}"`).join(',')).join('\n');
+    const blob = new Blob([headersCsv + '\n' + rowsCsv], { type: 'text/csv;charset=utf-8;' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `service_tickets_${onlySelected ? 'selected_' : ''}export.csv`;
+    a.click();
+    toast.success(`Exported ${exportData.length} tickets to CSV`);
+  };
+
   const filtered = tickets.filter(t => {
-    const matchSearch = 
+    const matchSearch =
       (t.ticket_no || '').toLowerCase().includes(search.toLowerCase()) ||
       (t.asset_code || '').toLowerCase().includes(search.toLowerCase()) ||
-      (t.client_name || '').toLowerCase().includes(search.toLowerCase()) ||
-      (t.issue_type || '').toLowerCase().includes(search.toLowerCase());
+      (t.product_name || '').toLowerCase().includes(search.toLowerCase()) ||
+      (t.client_name || '').toLowerCase().includes(search.toLowerCase());
     const matchStatus = statusFilter === 'all' || t.status === statusFilter;
     return matchSearch && matchStatus;
   });
 
+  const toggleSelectAll = e => {
+    if (e.target.checked) setSelectedIds(filtered.map(t => t.id));
+    else setSelectedIds([]);
+  };
+
+  const toggleSelectRow = id => {
+    setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
+
   return (
     <div className="erp-page">
+      {/* Header */}
       <div className="erp-page-header">
         <div>
-          <h1 className="erp-page-title">Service & Maintenance</h1>
-          <p className="erp-page-sub">Track equipment breakdowns, repairs, technician assignments and turnaround</p>
+          <h1 className="erp-page-title">Service & Happy Calling Desk</h1>
+          <p className="erp-page-sub">Client issue resolution, breakdown tracking, and technician dispatch</p>
         </div>
-        <button className="erp-btn-primary" onClick={() => { setForm(blankForm); setShowCreate(true); }}>
-          <i className="fa fa-plus" /> Log Service Ticket
-        </button>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button className="erp-btn-ghost" onClick={loadData}><i className="fa fa-refresh" /> Refresh</button>
+          <button className="erp-btn-primary" onClick={() => { setForm(blankForm); setShowCreate(true); }}>
+            <i className="fa fa-plus" /> Log New Ticket
+          </button>
+        </div>
       </div>
 
-      {/* Stats Summary */}
+      {/* KPI Stats */}
       <div className="erp-stat-row">
         {[
-          { label: 'Open Tickets',    val: stats.open || 0,        color: '#ef4444' },
-          { label: 'Assigned',        val: stats.assigned || 0,    color: '#f59e0b' },
-          { label: 'In Progress',     val: stats.inProgress || 0,  color: '#3b82f6' },
-          { label: 'Resolved/Closed', val: (stats.resolved || 0) + (stats.closed || 0), color: '#10b981' },
-          { label: 'High Priority',   val: stats.highPriorityOpen || 0, color: '#dc2626' }
+          { label: 'Open Tickets',    val: stats.open_tickets || 0,        color: '#ef4444' },
+          { label: 'Assigned / WIP',  val: stats.assigned_tickets || 0,    color: '#f59e0b' },
+          { label: 'Resolved (Month)',val: stats.resolved_this_month || 0, color: '#10b981' },
+          { label: 'Critical Issues', val: stats.critical_tickets || 0,    color: '#8b5cf6' },
         ].map(s => (
-          <div key={s.label} className="erp-stat-card" style={{ borderLeftColor: s.color }}>
+          <div className="erp-stat-card" key={s.label} style={{ borderLeftColor: s.color }}>
             <div className="erp-stat-val" style={{ color: s.color }}>{s.val}</div>
             <div className="erp-stat-label">{s.label}</div>
           </div>
         ))}
+      </div>
+
+      {/* Dynamic Action Toolbar */}
+      <div className="erp-card" style={{ padding: '12px 18px', marginBottom: '14px', background: selectedIds.length > 0 ? '#eff6ff' : '#ffffff', borderColor: selectedIds.length > 0 ? '#bfdbfe' : '#e2e8f0' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+            {selectedIds.length > 0 ? (
+              <>
+                <button
+                  className="erp-btn-primary"
+                  style={{ background: '#10b981', padding: '6px 14px', fontSize: '13px' }}
+                  onClick={() => handleBulkStatusChange('Resolved')}
+                >
+                  <i className="fa fa-check" /> Mark Resolved ({selectedIds.length})
+                </button>
+                <button
+                  className="erp-btn-primary"
+                  style={{ background: '#64748b', padding: '6px 14px', fontSize: '13px' }}
+                  onClick={() => handleBulkStatusChange('Closed')}
+                >
+                  <i className="fa fa-lock" /> Close ({selectedIds.length})
+                </button>
+                {selectedIds.length === 1 && (
+                  <button
+                    className="erp-btn-ghost"
+                    style={{ padding: '6px 14px', fontSize: '13px' }}
+                    onClick={() => openTicketDetail(selectedIds[0])}
+                  >
+                    <i className="fa fa-eye" /> View Ticket
+                  </button>
+                )}
+                <button
+                  className="erp-btn-ghost"
+                  style={{ padding: '6px 14px', fontSize: '13px' }}
+                  onClick={() => handleExportCsv(true)}
+                >
+                  <i className="fa fa-download" /> Export Selected ({selectedIds.length})
+                </button>
+                <button
+                  className="erp-btn-ghost"
+                  style={{ padding: '6px 14px', fontSize: '13px' }}
+                  onClick={() => setSelectedIds([])}
+                >
+                  <i className="fa fa-times" /> Deselect All
+                </button>
+              </>
+            ) : (
+              <>
+                <button className="erp-btn-primary" style={{ padding: '6px 14px', fontSize: '13px' }} onClick={() => { setForm(blankForm); setShowCreate(true); }}>
+                  <i className="fa fa-plus" /> Log New Ticket
+                </button>
+                <button className="erp-btn-ghost" style={{ padding: '6px 14px', fontSize: '13px' }} onClick={() => handleExportCsv(false)}>
+                  <i className="fa fa-download" /> Export All CSV
+                </button>
+                <button className="erp-btn-ghost" style={{ padding: '6px 14px', fontSize: '13px' }} onClick={loadData}>
+                  <i className="fa fa-refresh" /> Refresh
+                </button>
+              </>
+            )}
+          </div>
+
+          {selectedIds.length > 0 && (
+            <div style={{ fontWeight: 600, color: '#1e40af', fontSize: '13px' }}>
+              {selectedIds.length} of {filtered.length} Ticket(s) selected
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Toolbar */}
@@ -185,7 +315,7 @@ export default function ServiceTickets() {
           <i className="fa fa-search erp-search-icon" />
           <input
             className="erp-search"
-            placeholder="Search by ticket #, asset code, client or issue..."
+            placeholder="Search by ticket no, asset, product, client..."
             value={search}
             onChange={e => setSearch(e.target.value)}
           />
@@ -209,6 +339,13 @@ export default function ServiceTickets() {
           <table className="erp-table">
             <thead>
               <tr>
+                <th style={{ width: '38px', textAlign: 'center' }}>
+                  <input
+                    type="checkbox"
+                    checked={filtered.length > 0 && selectedIds.length === filtered.length}
+                    onChange={toggleSelectAll}
+                  />
+                </th>
                 <th>Ticket No</th>
                 <th>Asset / Model</th>
                 <th>Client / Order</th>
@@ -221,12 +358,20 @@ export default function ServiceTickets() {
             </thead>
             <tbody>
               {filtered.length === 0 ? (
-                <tr><td colSpan={8} className="erp-empty">No service tickets found.</td></tr>
+                <tr><td colSpan={9} className="erp-empty">No service tickets found.</td></tr>
               ) : filtered.map(t => {
                 const sc = STATUS_COLORS[t.status] || { bg: '#f1f5f9', color: '#475569' };
                 const pb = PRIORITY_BADGES[t.priority] || { bg: '#64748b', color: '#fff' };
+                const isSelected = selectedIds.includes(t.id);
                 return (
-                  <tr key={t.id}>
+                  <tr key={t.id} style={{ background: isSelected ? '#f0fdf4' : undefined }}>
+                    <td style={{ textAlign: 'center' }}>
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => toggleSelectRow(t.id)}
+                      />
+                    </td>
                     <td><span className="erp-code">{t.ticket_no}</span></td>
                     <td>
                       <div className="erp-cell-main">{t.asset_code}</div>

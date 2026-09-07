@@ -14,6 +14,7 @@ export default function AssetMaster() {
   const [editing, setEditing]   = useState(null);
   const [search, setSearch]     = useState('');
   const [loading, setLoading]   = useState(false);
+  const [selectedIds, setSelectedIds] = useState([]);
   const nav = useNavigate();
 
   const blank = {
@@ -93,11 +94,87 @@ export default function AssetMaster() {
     data.status === 'success' ? (toast.success('Asset removed!'), fetchAll()) : toast.error(data.message);
   };
 
+  // Bulk Status Update
+  const handleBulkStatusChange = async (statusId) => {
+    if (selectedIds.length === 0) return toast.error('Please select at least 1 asset');
+    if (!statusId) return;
+    try {
+      const promises = selectedIds.map(id => 
+        fetch(`/api/masters/asset_master/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ asset_status_id: statusId })
+        })
+      );
+      await Promise.all(promises);
+      toast.success(`Updated status for ${selectedIds.length} asset(s)!`);
+      setSelectedIds([]);
+      fetchAll();
+    } catch {
+      toast.error('Bulk status update failed');
+    }
+  };
+
+  // Bulk Delete
+  const handleBulkDelete = async () => {
+    if (selectedIds.length === 0) return toast.error('Please select at least 1 asset');
+    if (!confirm(`Delete ${selectedIds.length} selected assets?`)) return;
+    try {
+      const res = await fetch(`/api/masters/asset_master/bulk-delete`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: selectedIds })
+      });
+      const data = await res.json();
+      if (data.status === 'success') {
+        toast.success(data.message);
+        setSelectedIds([]);
+        fetchAll();
+      } else {
+        toast.error(data.message);
+      }
+    } catch {
+      toast.error('Failed to delete selected assets');
+    }
+  };
+
+  // Bulk CSV Export
+  const handleExportCsv = (onlySelected = false) => {
+    const exportData = onlySelected ? assets.filter(a => selectedIds.includes(a.id)) : assets;
+    if (exportData.length === 0) return toast.error('No data to export');
+    const cols = [
+      { key: 'asset_code', label: 'Asset Code' },
+      { key: 'product_name', label: 'Product Name' },
+      { key: 'serial_no', label: 'Serial No' },
+      { key: 'current_location', label: 'Location' },
+      { key: 'asset_status', label: 'Status' },
+      { key: 'condition_name', label: 'Condition' },
+      { key: 'purchase_cost', label: 'Purchase Cost' }
+    ];
+    const headersCsv = cols.map(c => `"${c.label}"`).join(',');
+    const rowsCsv = exportData.map(row => cols.map(c => `"${(row[c.key] ?? '').toString().replace(/"/g, '""')}"`).join(',')).join('\n');
+    const blob = new Blob([headersCsv + '\n' + rowsCsv], { type: 'text/csv;charset=utf-8;' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `asset_master_${onlySelected ? 'selected_' : ''}export.csv`;
+    a.click();
+    toast.success(`Exported ${exportData.length} assets to CSV`);
+  };
+
   const filtered = assets.filter(a =>
     (a.asset_code||'').toLowerCase().includes(search.toLowerCase()) ||
     (a.serial_no||'').toLowerCase().includes(search.toLowerCase()) ||
     (a.product_name||'').toLowerCase().includes(search.toLowerCase())
   );
+
+  const toggleSelectAll = e => {
+    if (e.target.checked) setSelectedIds(filtered.map(a => a.id));
+    else setSelectedIds([]);
+  };
+
+  const toggleSelectRow = id => {
+    setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
 
   const statusBadge = a => (
     <span className="erp-badge" style={{ background: a.status_color||'#888', color:'#fff' }}>
@@ -112,9 +189,12 @@ export default function AssetMaster() {
           <h1 className="erp-page-title">Asset Master</h1>
           <p className="erp-page-sub">Physical IT assets — laptops, desktops, monitors, accessories</p>
         </div>
-        <button className="erp-btn-primary" onClick={() => { setShowForm(true); setEditing(null); setForm(blank); }}>
-          <i className="fa fa-plus" /> Add Asset
-        </button>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button className="erp-btn-ghost" onClick={fetchAll}><i className="fa fa-refresh" /> Refresh</button>
+          <button className="erp-btn-primary" onClick={() => { setShowForm(true); setEditing(null); setForm(blank); }}>
+            <i className="fa fa-plus" /> Add Asset
+          </button>
+        </div>
       </div>
 
       {/* Stats Row */}
@@ -130,6 +210,76 @@ export default function AssetMaster() {
             <div className="erp-stat-label">{s.label}</div>
           </div>
         ))}
+      </div>
+
+      {/* Dynamic Action Toolbar */}
+      <div className="erp-card" style={{ padding: '12px 18px', marginBottom: '14px', background: selectedIds.length > 0 ? '#eff6ff' : '#ffffff', borderColor: selectedIds.length > 0 ? '#bfdbfe' : '#e2e8f0' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+            {selectedIds.length > 0 ? (
+              <>
+                <button
+                  className="erp-btn-primary"
+                  style={{ background: '#6366f1', padding: '6px 14px', fontSize: '13px' }}
+                  onClick={() => nav(`/assets/asset-master/${selectedIds[0]}/barcode`)}
+                  title="Print Barcode Label"
+                >
+                  <i className="fa fa-barcode" /> Print Barcode ({selectedIds.length})
+                </button>
+                
+                <select
+                  className="erp-select"
+                  style={{ width: '160px', padding: '5px 10px', fontSize: '13px' }}
+                  onChange={e => { handleBulkStatusChange(e.target.value); e.target.value = ''; }}
+                  defaultValue=""
+                >
+                  <option value="" disabled>Change Status...</option>
+                  {statuses.map(s => <option key={s.id} value={s.id}>{s.status_name}</option>)}
+                </select>
+
+                <button
+                  className="erp-btn-ghost"
+                  style={{ padding: '6px 14px', fontSize: '13px' }}
+                  onClick={() => handleExportCsv(true)}
+                >
+                  <i className="fa fa-download" /> Export Selected ({selectedIds.length})
+                </button>
+                <button
+                  className="erp-btn-danger"
+                  style={{ padding: '6px 14px', fontSize: '13px' }}
+                  onClick={handleBulkDelete}
+                >
+                  <i className="fa fa-trash" /> Delete ({selectedIds.length})
+                </button>
+                <button
+                  className="erp-btn-ghost"
+                  style={{ padding: '6px 14px', fontSize: '13px' }}
+                  onClick={() => setSelectedIds([])}
+                >
+                  <i className="fa fa-times" /> Deselect All
+                </button>
+              </>
+            ) : (
+              <>
+                <button className="erp-btn-primary" style={{ padding: '6px 14px', fontSize: '13px' }} onClick={() => { setShowForm(true); setEditing(null); setForm(blank); }}>
+                  <i className="fa fa-plus" /> Add Asset
+                </button>
+                <button className="erp-btn-ghost" style={{ padding: '6px 14px', fontSize: '13px' }} onClick={() => handleExportCsv(false)}>
+                  <i className="fa fa-download" /> Export All CSV
+                </button>
+                <button className="erp-btn-ghost" style={{ padding: '6px 14px', fontSize: '13px' }} onClick={fetchAll}>
+                  <i className="fa fa-refresh" /> Refresh
+                </button>
+              </>
+            )}
+          </div>
+
+          {selectedIds.length > 0 && (
+            <div style={{ fontWeight: 600, color: '#1e40af', fontSize: '13px' }}>
+              {selectedIds.length} of {filtered.length} Asset(s) selected
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Search */}
@@ -148,6 +298,13 @@ export default function AssetMaster() {
           <table className="erp-table">
             <thead>
               <tr>
+                <th style={{ width: '38px', textAlign: 'center' }}>
+                  <input
+                    type="checkbox"
+                    checked={filtered.length > 0 && selectedIds.length === filtered.length}
+                    onChange={toggleSelectAll}
+                  />
+                </th>
                 <th>Asset Code</th><th>Product</th><th>Serial No</th>
                 <th>Location</th><th>Status</th><th>Condition</th>
                 <th>Purchase Cost</th><th>Actions</th>
@@ -155,35 +312,45 @@ export default function AssetMaster() {
             </thead>
             <tbody>
               {filtered.length === 0 ? (
-                <tr><td colSpan={8} className="erp-empty">No assets found. Click "Add Asset" to create one.</td></tr>
-              ) : filtered.map(a => (
-                <tr key={a.id}>
-                  <td><span className="erp-code">{a.asset_code}</span></td>
-                  <td><div className="erp-cell-main">{a.product_name}</div><div className="erp-cell-sub">{a.model}</div></td>
-                  <td>{a.serial_no||'—'}</td>
-                  <td>{a.current_location||'—'}</td>
-                  <td>{statusBadge(a)}</td>
-                  <td>{a.condition_name||'—'}</td>
-                  <td>₹{Number(a.purchase_cost||0).toLocaleString('en-IN')}</td>
-                  <td>
-                    <button className="erp-btn-icon" title="Print Barcode Label" onClick={() => nav(`/assets/asset-master/${a.id}/barcode`)} style={{ color: '#6366f1' }}>
-                      <i className="fa fa-barcode" />
-                    </button>
+                <tr><td colSpan={9} className="erp-empty">No assets found. Click "Add Asset" to create one.</td></tr>
+              ) : filtered.map(a => {
+                const isSelected = selectedIds.includes(a.id);
+                return (
+                  <tr key={a.id} style={{ background: isSelected ? '#f0fdf4' : undefined }}>
+                    <td style={{ textAlign: 'center' }}>
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => toggleSelectRow(a.id)}
+                      />
+                    </td>
+                    <td><span className="erp-code">{a.asset_code}</span></td>
+                    <td><div className="erp-cell-main">{a.product_name}</div><div className="erp-cell-sub">{a.model}</div></td>
+                    <td>{a.serial_no||'—'}</td>
+                    <td>{a.current_location||'—'}</td>
+                    <td>{statusBadge(a)}</td>
+                    <td>{a.condition_name||'—'}</td>
+                    <td>₹{Number(a.purchase_cost||0).toLocaleString('en-IN')}</td>
+                    <td>
+                      <button className="erp-btn-icon" title="Print Barcode Label" onClick={() => nav(`/assets/asset-master/${a.id}/barcode`)} style={{ color: '#6366f1' }}>
+                        <i className="fa fa-barcode" />
+                      </button>
 
-                    <button className="erp-btn-icon" title="View Movements" onClick={() => nav(`/assets/asset-movements?id=${a.id}&code=${a.asset_code}`)}>
-                      <i className="fa fa-exchange" />
-                    </button>
+                      <button className="erp-btn-icon" title="View Movements" onClick={() => nav(`/assets/asset-movements?id=${a.id}&code=${a.asset_code}`)}>
+                        <i className="fa fa-exchange" />
+                      </button>
 
-                    <button className="erp-btn-icon" title="Edit" onClick={() => handleEdit(a)}>
-                      <i className="fa fa-pencil" />
-                    </button>
-                    <button className="erp-btn-icon erp-btn-danger" title="Remove" onClick={() => handleDelete(a.id)}>
-                      <i className="fa fa-trash" />
-                    </button>
-                  </td>
+                      <button className="erp-btn-icon" title="Edit" onClick={() => handleEdit(a)}>
+                        <i className="fa fa-pencil" />
+                      </button>
+                      <button className="erp-btn-icon erp-btn-danger" title="Remove" onClick={() => handleDelete(a.id)}>
+                        <i className="fa fa-trash" />
+                      </button>
+                    </td>
 
-                </tr>
-              ))}
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         )}

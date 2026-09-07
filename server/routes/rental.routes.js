@@ -193,6 +193,38 @@ router.put('/orders/:id/approve', async (req, res) => {
   }
 });
 
+// POST bulk approve orders
+router.post('/orders/bulk-approve', async (req, res) => {
+  try {
+    const { ids } = req.body;
+    if (!Array.isArray(ids) || ids.length === 0) return res.status(400).json({ status: 'error', message: 'No orders selected' });
+    const marks = ids.map(() => '?').join(',');
+    await db.execute(
+      `UPDATE rental_orders SET status='Confirmed', approved_by=?, approved_at=NOW() WHERE id IN (${marks}) AND status='Draft'`,
+      [req.user?.id || null, ...ids]
+    );
+    res.json({ status: 'success', message: `${ids.length} Rental Orders confirmed!` });
+  } catch (e) {
+    res.status(500).json({ status: 'error', message: e.sqlMessage || e.message });
+  }
+});
+
+// POST bulk dispatch / activate orders
+router.post('/orders/bulk-dispatch', async (req, res) => {
+  try {
+    const { ids } = req.body;
+    if (!Array.isArray(ids) || ids.length === 0) return res.status(400).json({ status: 'error', message: 'No orders selected' });
+    const marks = ids.map(() => '?').join(',');
+    await db.execute(
+      `UPDATE rental_orders SET status='Active', start_date=COALESCE(start_date, CURDATE()) WHERE id IN (${marks})`,
+      ids
+    );
+    res.json({ status: 'success', message: `${ids.length} Rental Orders dispatched & activated!` });
+  } catch (e) {
+    res.status(500).json({ status: 'error', message: e.sqlMessage || e.message });
+  }
+});
+
 // PUT cancel order
 router.put('/orders/:id/cancel', async (req, res) => {
   try {

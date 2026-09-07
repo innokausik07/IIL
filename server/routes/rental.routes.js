@@ -120,7 +120,7 @@ router.post('/orders', async (req, res) => {
        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,'Draft')`,
       [order_no, client_id, lead_id||null, quot_id||null, org_unit_id||null,
        delivery_loc_id||null, order_date, start_date||null, end_date||null,
-       total, remarks||null, created_by||null]
+       total, remarks||null, created_by || req.user?.id || req.user?.userid || null]
     );
 
     const orderId = result.insertId;

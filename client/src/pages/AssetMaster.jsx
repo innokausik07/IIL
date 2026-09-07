@@ -218,6 +218,31 @@ export default function AssetMaster() {
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
             {selectedIds.length > 0 ? (
               <>
+                {selectedIds.length === 1 && (() => {
+                  const sel = assets.find(a => a.id === selectedIds[0]);
+                  if (!sel) return null;
+                  return (
+                    <>
+                      <button
+                        className="erp-btn-primary"
+                        style={{ background: '#3b82f6', padding: '6px 14px', fontSize: '13px' }}
+                        onClick={() => handleEdit(sel)}
+                        title="Edit Asset"
+                      >
+                        <i className="fa fa-pencil" /> Edit Asset
+                      </button>
+                      <button
+                        className="erp-btn-primary"
+                        style={{ background: '#8b5cf6', padding: '6px 14px', fontSize: '13px' }}
+                        onClick={() => nav(`/assets/asset-movements?id=${sel.id}&code=${sel.asset_code}`)}
+                        title="View Asset Movements"
+                      >
+                        <i className="fa fa-exchange" /> Movements
+                      </button>
+                    </>
+                  );
+                })()}
+
                 <button
                   className="erp-btn-primary"
                   style={{ background: '#6366f1', padding: '6px 14px', fontSize: '13px' }}
@@ -307,17 +332,21 @@ export default function AssetMaster() {
                 </th>
                 <th>Asset Code</th><th>Product</th><th>Serial No</th>
                 <th>Location</th><th>Status</th><th>Condition</th>
-                <th>Purchase Cost</th><th>Actions</th>
+                <th>Purchase Cost</th>
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 ? (
-                <tr><td colSpan={9} className="erp-empty">No assets found. Click "Add Asset" to create one.</td></tr>
+                <tr><td colSpan={8} className="erp-empty">No assets found. Click "Add Asset" to create one.</td></tr>
               ) : filtered.map(a => {
                 const isSelected = selectedIds.includes(a.id);
                 return (
-                  <tr key={a.id} style={{ background: isSelected ? '#f0fdf4' : undefined }}>
-                    <td style={{ textAlign: 'center' }}>
+                  <tr
+                    key={a.id}
+                    style={{ background: isSelected ? '#f0fdf4' : undefined, cursor: 'pointer' }}
+                    onClick={() => toggleSelectRow(a.id)}
+                  >
+                    <td style={{ textAlign: 'center' }} onClick={e => e.stopPropagation()}>
                       <input
                         type="checkbox"
                         checked={isSelected}
@@ -331,23 +360,6 @@ export default function AssetMaster() {
                     <td>{statusBadge(a)}</td>
                     <td>{a.condition_name||'—'}</td>
                     <td>₹{Number(a.purchase_cost||0).toLocaleString('en-IN')}</td>
-                    <td>
-                      <button className="erp-btn-icon" title="Print Barcode Label" onClick={() => nav(`/assets/asset-master/${a.id}/barcode`)} style={{ color: '#6366f1' }}>
-                        <i className="fa fa-barcode" />
-                      </button>
-
-                      <button className="erp-btn-icon" title="View Movements" onClick={() => nav(`/assets/asset-movements?id=${a.id}&code=${a.asset_code}`)}>
-                        <i className="fa fa-exchange" />
-                      </button>
-
-                      <button className="erp-btn-icon" title="Edit" onClick={() => handleEdit(a)}>
-                        <i className="fa fa-pencil" />
-                      </button>
-                      <button className="erp-btn-icon erp-btn-danger" title="Remove" onClick={() => handleDelete(a.id)}>
-                        <i className="fa fa-trash" />
-                      </button>
-                    </td>
-
                   </tr>
                 );
               })}

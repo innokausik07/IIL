@@ -7,6 +7,7 @@ const MasterTable = ({ title, sub, fields, table, idCol = 'id' }) => {
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing]   = useState(null);
   const [loading, setLoading]   = useState(false);
+  const [selectedIds, setSelectedIds] = useState([]);
   const blank = Object.fromEntries(fields.map(f => [f.key, f.default ?? '']));
   const [form, setForm]         = useState(blank);
 
@@ -32,7 +33,7 @@ const MasterTable = ({ title, sub, fields, table, idCol = 'id' }) => {
     if (!confirm('Deactivate this record?')) return;
     const res  = await fetch(`/api/masters/${table}/${id}`, { method: 'DELETE' });
     const data = await res.json();
-    data.status === 'success' ? (toast.success('Deactivated!'), load()) : toast.error(data.message);
+    data.status === 'success' ? (toast.success('Deactivated!'), setSelectedIds([]), load()) : toast.error(data.message);
   };
 
   const edit = row => {
@@ -41,35 +42,99 @@ const MasterTable = ({ title, sub, fields, table, idCol = 'id' }) => {
     setShowForm(true);
   };
 
+  const activeRows = rows.filter(r => r.status !== 'D');
+
+  const toggleSelectAll = e => {
+    if (e.target.checked) setSelectedIds(activeRows.map(r => r[idCol]));
+    else setSelectedIds([]);
+  };
+
+  const toggleSelectRow = id => {
+    setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
+
   return (
-    <div className="erp-card" style={{ marginBottom: '1.5rem' }}>
-      <div className="erp-card-header">
+    <div className="erp-card" style={{ marginBottom: '1.5rem', borderColor: selectedIds.length > 0 ? '#bfdbfe' : undefined }}>
+      <div className="erp-card-header" style={{ background: selectedIds.length > 0 ? '#eff6ff' : undefined }}>
         <div><div className="erp-card-title">{title}</div><div className="erp-card-sub">{sub}</div></div>
-        <button className="erp-btn-primary erp-btn-sm" onClick={() => { setForm(blank); setEditing(null); setShowForm(true); }}>
-          <i className="fa fa-plus" /> Add
-        </button>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          {selectedIds.length > 0 ? (
+            <>
+              {selectedIds.length === 1 && (
+                <button
+                  className="erp-btn-primary erp-btn-sm"
+                  onClick={() => {
+                    const sel = activeRows.find(r => r[idCol] === selectedIds[0]);
+                    if (sel) edit(sel);
+                  }}
+                >
+                  <i className="fa fa-pencil" /> Edit
+                </button>
+              )}
+              <button
+                className="erp-btn-ghost erp-btn-sm"
+                style={{ color: '#dc2626', borderColor: '#fca5a5' }}
+                onClick={() => {
+                  if (confirm(`Deactivate ${selectedIds.length} item(s)?`)) {
+                    selectedIds.forEach(id => del(id));
+                  }
+                }}
+              >
+                <i className="fa fa-trash" /> Deactivate ({selectedIds.length})
+              </button>
+              <button className="erp-btn-ghost erp-btn-sm" onClick={() => setSelectedIds([])}>
+                <i className="fa fa-times" />
+              </button>
+            </>
+          ) : (
+            <button className="erp-btn-primary erp-btn-sm" onClick={() => { setForm(blank); setEditing(null); setShowForm(true); }}>
+              <i className="fa fa-plus" /> Add
+            </button>
+          )}
+        </div>
       </div>
       {loading ? <div className="erp-loader"><div className="erp-spinner" /></div> : (
         <table className="erp-table erp-table-compact">
-          <thead><tr>{fields.filter(f=>!f.hidden).map(f=><th key={f.key}>{f.label}</th>)}<th>Actions</th></tr></thead>
+          <thead>
+            <tr>
+              <th style={{ width: 34, textAlign: 'center' }}>
+                <input
+                  type="checkbox"
+                  checked={activeRows.length > 0 && selectedIds.length === activeRows.length}
+                  onChange={toggleSelectAll}
+                />
+              </th>
+              {fields.filter(f=>!f.hidden).map(f=><th key={f.key}>{f.label}</th>)}
+            </tr>
+          </thead>
           <tbody>
-            {rows.filter(r=>r.status!=='D').length === 0 ? (
+            {activeRows.length === 0 ? (
               <tr><td colSpan={fields.length+1} className="erp-empty">No records. Click Add to create.</td></tr>
-            ) : rows.filter(r=>r.status!=='D').map(r=>(
-              <tr key={r[idCol]}>
-                {fields.filter(f=>!f.hidden).map(f=>(
-                  <td key={f.key}>
-                    {f.badge ? <span className="erp-badge" style={{ background: r.color||'#6366f1', color:'#fff' }}>{r[f.key]||'—'}</span>
-                    : f.key==='color' ? <span style={{ display:'inline-block', width:20, height:20, borderRadius:4, background:r.color||'#888', verticalAlign:'middle' }} />
-                    : (f.prefix||'')+String(r[f.key]||'—')}
+            ) : activeRows.map(r => {
+              const isSelected = selectedIds.includes(r[idCol]);
+              return (
+                <tr
+                  key={r[idCol]}
+                  onClick={() => toggleSelectRow(r[idCol])}
+                  style={{ background: isSelected ? '#f0fdf4' : undefined, cursor: 'pointer' }}
+                >
+                  <td style={{ textAlign: 'center' }} onClick={e => e.stopPropagation()}>
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => toggleSelectRow(r[idCol])}
+                    />
                   </td>
-                ))}
-                <td>
-                  <button className="erp-btn-icon" onClick={() => edit(r)}><i className="fa fa-pencil" /></button>
-                  <button className="erp-btn-icon erp-btn-danger" onClick={() => del(r[idCol])}><i className="fa fa-trash" /></button>
-                </td>
-              </tr>
-            ))}
+                  {fields.filter(f=>!f.hidden).map(f=>(
+                    <td key={f.key}>
+                      {f.badge ? <span className="erp-badge" style={{ background: r.color||'#6366f1', color:'#fff' }}>{r[f.key]||'—'}</span>
+                      : f.key==='color' ? <span style={{ display:'inline-block', width:20, height:20, borderRadius:4, background:r.color||'#888', verticalAlign:'middle' }} />
+                      : (f.prefix||'')+String(r[f.key]||'—')}
+                    </td>
+                  ))}
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       )}

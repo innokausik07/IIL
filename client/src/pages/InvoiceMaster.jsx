@@ -255,13 +255,32 @@ export default function InvoiceMaster() {
                   <i className="fa fa-send" /> Send ({selectedIds.length})
                 </button>
                 {selectedIds.length === 1 && (
-                  <button
-                    className="erp-btn-ghost"
-                    style={{ padding: '6px 14px', fontSize: '13px' }}
-                    onClick={() => nav(`/finance/invoices/${selectedIds[0]}/print`)}
-                  >
-                    <i className="fa fa-print" /> Print Invoice
-                  </button>
+                  <>
+                    <button
+                      className="erp-btn-ghost"
+                      style={{ padding: '6px 14px', fontSize: '13px' }}
+                      onClick={() => nav(`/finance/invoices/${selectedIds[0]}/print`)}
+                    >
+                      <i className="fa fa-print" /> Print Invoice
+                    </button>
+                    {(() => {
+                      const selInv = invoices.find(x => x.id === selectedIds[0]);
+                      if (!selInv) return null;
+                      return (
+                        <>
+                          {['Sent', 'Partial'].includes(selInv.status) && parseFloat(selInv.balance_due) > 0 && (
+                            <button
+                              className="erp-btn-primary"
+                              style={{ background: '#059669', padding: '6px 14px', fontSize: '13px' }}
+                              onClick={() => openPayment(selInv)}
+                            >
+                              <i className="fa fa-credit-card" /> Record Payment
+                            </button>
+                          )}
+                        </>
+                      );
+                    })()}
+                  </>
                 )}
                 <button
                   className="erp-btn-ghost"
@@ -325,17 +344,21 @@ export default function InvoiceMaster() {
                     onChange={toggleSelectAll}
                   />
                 </th>
-                <th>Invoice No</th><th>Client</th><th>Order No</th><th>Invoice Date</th><th>Due Date</th><th>Total</th><th>Paid</th><th>Balance</th><th>Status</th><th>Actions</th>
+                <th>Invoice No</th><th>Client</th><th>Order No</th><th>Invoice Date</th><th>Due Date</th><th>Total</th><th>Paid</th><th>Balance</th><th>Status</th>
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 ? (
-                <tr><td colSpan={11} className="erp-empty">No invoices found.</td></tr>
+                <tr><td colSpan={10} className="erp-empty">No invoices found.</td></tr>
               ) : filtered.map(i => {
                 const isSelected = selectedIds.includes(i.id);
                 return (
-                  <tr key={i.id} style={{ background: isSelected ? '#f0fdf4' : undefined }}>
-                    <td style={{ textAlign: 'center' }}>
+                  <tr
+                    key={i.id}
+                    onClick={() => toggleSelectRow(i.id)}
+                    style={{ background: isSelected ? '#f0fdf4' : undefined, cursor: 'pointer' }}
+                  >
+                    <td style={{ textAlign: 'center' }} onClick={e => e.stopPropagation()}>
                       <input
                         type="checkbox"
                         checked={isSelected}
@@ -353,24 +376,6 @@ export default function InvoiceMaster() {
                       ₹{Number(i.balance_due||0).toLocaleString('en-IN')}
                     </td>
                     <td>{sb(i.status)}</td>
-                    <td>
-                      {i.status === 'Draft' && (
-                        <button className="erp-btn-icon" style={{ color:'#6366f1' }} title="Send Invoice" onClick={() => sendInvoice(i.id)}>
-                          <i className="fa fa-send" />
-                        </button>
-                      )}
-                      {['Sent','Partial'].includes(i.status) && parseFloat(i.balance_due) > 0 && (
-                        <button className="erp-btn-icon" style={{ color:'#16a34a' }} title="Record Payment" onClick={() => openPayment(i)}>
-                          <i className="fa fa-money" />
-                        </button>
-                      )}
-                      <button className="erp-btn-icon" title="Print Tax Invoice" onClick={() => nav(`/finance/invoices/${i.id}/print`)} style={{ color: '#059669' }}>
-                        <i className="fa fa-print" />
-                      </button>
-                      <button className="erp-btn-icon" title="View Detail" onClick={() => nav(`/finance/invoices/${i.id}/print`)}>
-                        <i className="fa fa-eye" />
-                      </button>
-                    </td>
                   </tr>
                 );
               })}

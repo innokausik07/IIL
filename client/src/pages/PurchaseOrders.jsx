@@ -452,15 +452,18 @@ export default function PurchaseOrders() {
                   <th>Tax (GST)</th>
                   <th>Total Amount</th>
                   <th>Status</th>
-                  <th style={{ textAlign: 'center' }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.map(po => {
                   const isSelected = selectedIds.includes(po.id);
                   return (
-                    <tr key={po.id} style={{ background: isSelected ? '#f0fdf4' : undefined }}>
-                      <td style={{ textAlign: 'center' }}>
+                    <tr
+                      key={po.id}
+                      style={{ background: isSelected ? '#f0fdf4' : undefined, cursor: 'pointer' }}
+                      onClick={() => toggleSelectRow(po.id)}
+                    >
+                      <td style={{ textAlign: 'center' }} onClick={e => e.stopPropagation()}>
                         <input
                           type="checkbox"
                           checked={isSelected}
@@ -492,61 +495,6 @@ export default function PurchaseOrders() {
                         </strong>
                       </td>
                       <td>{getStatusBadge(po.status)}</td>
-                      <td style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>
-                        <button
-                          onClick={() => navigate(`/procurement/purchase-orders/${po.id}/print`)}
-                          className="erp-btn-ghost erp-btn-sm"
-                          style={{ color: '#4f46e5', marginRight: '4px' }}
-                          title="Print Purchase Order"
-                        >
-                          <FileText size={13} /> Print
-                        </button>
-
-                        {/* 1-Click Receive GRN button when Approved or Partially Received */}
-                        {(po.status === 'Approved' || po.status === 'Partially Received') && (
-                          <button
-                            onClick={() => handleOpenGrnModal(po)}
-                            className="erp-btn-sm"
-                            style={{
-                              background: '#4f46e5',
-                              color: '#ffffff',
-                              marginRight: '4px',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '4px',
-                              padding: '4px 8px',
-                              borderRadius: '4px',
-                              border: 'none',
-                              cursor: 'pointer',
-                              fontWeight: '600'
-                            }}
-                            title="Generate GRN Inward & Auto-Create Assets"
-                          >
-                            <PackageCheck size={13} /> Receive GRN
-                          </button>
-                        )}
-
-                        {po.status === 'Draft' && (
-                          <button
-                            onClick={() => handleApprove(po.id, po.po_no)}
-                            className="erp-btn-ghost erp-btn-sm"
-                            style={{ color: '#10b981', marginRight: '4px' }}
-                            title="Approve PO"
-                          >
-                          <CheckCircle size={13} /> Approve
-                        </button>
-                      )}
-                      {po.status === 'Draft' && (
-                        <button
-                          onClick={() => handleCancel(po.id, po.po_no)}
-                          className="erp-btn-ghost erp-btn-sm"
-                          style={{ color: '#ef4444' }}
-                          title="Cancel PO"
-                        >
-                          <XCircle size={13} />
-                        </button>
-                      )}
-                      </td>
                     </tr>
                   );
                 })}

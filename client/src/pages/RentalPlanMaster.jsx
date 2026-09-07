@@ -10,6 +10,7 @@ export default function RentalPlanMaster() {
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing]   = useState(null);
   const [loading, setLoading]   = useState(false);
+  const [selectedIds, setSelectedIds] = useState([]);
 
   const blank = {
     plan_code:'', plan_name:'', product_id:'', rental_type_id:'',
@@ -63,7 +64,16 @@ export default function RentalPlanMaster() {
     if (!confirm('Deactivate this plan?')) return;
     const res  = await fetch(`/api/masters/rental_plan_master/${id}`, { method:'DELETE' });
     const data = await res.json();
-    data.status === 'success' ? (toast.success('Plan deactivated!'), fetch_()) : toast.error(data.message);
+    data.status === 'success' ? (toast.success('Plan deactivated!'), setSelectedIds([]), fetch_()) : toast.error(data.message);
+  };
+
+  const toggleSelectAll = e => {
+    if (e.target.checked) setSelectedIds(plans.map(p => p.id));
+    else setSelectedIds([]);
+  };
+
+  const toggleSelectRow = id => {
+    setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
   };
 
   return (
@@ -73,9 +83,69 @@ export default function RentalPlanMaster() {
           <h1 className="erp-page-title">Rental Plan Master</h1>
           <p className="erp-page-sub">Configure product-wise rental pricing, duration, deposit and billing cycle</p>
         </div>
-        <button className="erp-btn-primary" onClick={() => { setShowForm(true); setEditing(null); setForm(blank); }}>
-          <i className="fa fa-plus" /> Add Plan
-        </button>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button className="erp-btn-ghost" onClick={fetch_}><i className="fa fa-refresh" /> Refresh</button>
+          <button className="erp-btn-primary" onClick={() => { setShowForm(true); setEditing(null); setForm(blank); }}>
+            <i className="fa fa-plus" /> Add Plan
+          </button>
+        </div>
+      </div>
+
+      {/* Dynamic Action Toolbar */}
+      <div className="erp-card" style={{ padding: '12px 18px', marginBottom: '14px', background: selectedIds.length > 0 ? '#eff6ff' : '#ffffff', borderColor: selectedIds.length > 0 ? '#bfdbfe' : '#e2e8f0' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+            {selectedIds.length > 0 ? (
+              <>
+                {selectedIds.length === 1 && (
+                  <button
+                    className="erp-btn-primary"
+                    style={{ padding: '6px 14px', fontSize: '13px' }}
+                    onClick={() => {
+                      const sel = plans.find(x => x.id === selectedIds[0]);
+                      if (sel) handleEdit(sel);
+                    }}
+                  >
+                    <i className="fa fa-pencil" /> Edit Plan
+                  </button>
+                )}
+                <button
+                  className="erp-btn-ghost"
+                  style={{ color: '#dc2626', borderColor: '#fca5a5', padding: '6px 14px', fontSize: '13px' }}
+                  onClick={() => {
+                    if (confirm(`Deactivate ${selectedIds.length} plan(s)?`)) {
+                      selectedIds.forEach(id => handleDelete(id));
+                    }
+                  }}
+                >
+                  <i className="fa fa-trash" /> Deactivate ({selectedIds.length})
+                </button>
+                <button
+                  className="erp-btn-ghost"
+                  style={{ padding: '6px 14px', fontSize: '13px' }}
+                  onClick={() => setSelectedIds([])}
+                >
+                  <i className="fa fa-times" /> Deselect All
+                </button>
+              </>
+            ) : (
+              <>
+                <button className="erp-btn-primary" style={{ padding: '6px 14px', fontSize: '13px' }} onClick={() => { setShowForm(true); setEditing(null); setForm(blank); }}>
+                  <i className="fa fa-plus" /> Add Plan
+                </button>
+                <button className="erp-btn-ghost" style={{ padding: '6px 14px', fontSize: '13px' }} onClick={fetch_}>
+                  <i className="fa fa-refresh" /> Refresh
+                </button>
+              </>
+            )}
+          </div>
+
+          {selectedIds.length > 0 && (
+            <div style={{ fontWeight: 600, color: '#1e40af', fontSize: '13px' }}>
+              {selectedIds.length} of {plans.length} Plan(s) selected
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="erp-card">
@@ -85,31 +155,48 @@ export default function RentalPlanMaster() {
           <table className="erp-table">
             <thead>
               <tr>
+                <th style={{ width: '38px', textAlign: 'center' }}>
+                  <input
+                    type="checkbox"
+                    checked={plans.length > 0 && selectedIds.length === plans.length}
+                    onChange={toggleSelectAll}
+                  />
+                </th>
                 <th>Plan Code</th><th>Plan Name</th><th>Product</th>
                 <th>Type</th><th>Duration</th><th>Monthly Rent</th>
-                <th>Security Deposit</th><th>Late Fee/Day</th><th>Auto Renew</th><th>Actions</th>
+                <th>Security Deposit</th><th>Late Fee/Day</th><th>Auto Renew</th>
               </tr>
             </thead>
             <tbody>
               {plans.length === 0 ? (
                 <tr><td colSpan={10} className="erp-empty">No rental plans configured yet.</td></tr>
-              ) : plans.map(p => (
-                <tr key={p.id}>
-                  <td><span className="erp-code">{p.plan_code}</span></td>
-                  <td><div className="erp-cell-main">{p.plan_name}</div></td>
-                  <td><div className="erp-cell-sub">{p.product_name||'—'}</div></td>
-                  <td>{p.rental_type||'—'}</td>
-                  <td>{p.duration_months} Months</td>
-                  <td className="erp-amount">₹{Number(p.monthly_rent||0).toLocaleString('en-IN')}</td>
-                  <td className="erp-amount">₹{Number(p.security_deposit||0).toLocaleString('en-IN')}</td>
-                  <td>₹{Number(p.late_fee_per_day||0).toLocaleString('en-IN')}/day</td>
-                  <td>{p.auto_renew ? <span className="erp-badge erp-badge-green">Yes</span> : <span className="erp-badge erp-badge-grey">No</span>}</td>
-                  <td>
-                    <button className="erp-btn-icon" title="Edit" onClick={() => handleEdit(p)}><i className="fa fa-pencil" /></button>
-                    <button className="erp-btn-icon erp-btn-danger" title="Deactivate" onClick={() => handleDelete(p.id)}><i className="fa fa-trash" /></button>
-                  </td>
-                </tr>
-              ))}
+              ) : plans.map(p => {
+                const isSelected = selectedIds.includes(p.id);
+                return (
+                  <tr
+                    key={p.id}
+                    onClick={() => toggleSelectRow(p.id)}
+                    style={{ background: isSelected ? '#f0fdf4' : undefined, cursor: 'pointer' }}
+                  >
+                    <td style={{ textAlign: 'center' }} onClick={e => e.stopPropagation()}>
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => toggleSelectRow(p.id)}
+                      />
+                    </td>
+                    <td><span className="erp-code">{p.plan_code}</span></td>
+                    <td><div className="erp-cell-main">{p.plan_name}</div></td>
+                    <td><div className="erp-cell-sub">{p.product_name||'—'}</div></td>
+                    <td>{p.rental_type||'—'}</td>
+                    <td>{p.duration_months} Months</td>
+                    <td className="erp-amount">₹{Number(p.monthly_rent||0).toLocaleString('en-IN')}</td>
+                    <td className="erp-amount">₹{Number(p.security_deposit||0).toLocaleString('en-IN')}</td>
+                    <td>₹{Number(p.late_fee_per_day||0).toLocaleString('en-IN')}/day</td>
+                    <td>{p.auto_renew ? <span className="erp-badge erp-badge-green">Yes</span> : <span className="erp-badge erp-badge-grey">No</span>}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         )}

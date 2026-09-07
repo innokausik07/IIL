@@ -382,20 +382,19 @@ export default function MasterPage({ title, icon, apiPath, fields, columns }) {
                   {columns.map(c => (
                     <th key={c.key}>{c.label}</th>
                   ))}
-                  <th style={{ textAlign: 'center', width: 90 }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {fetching ? (
                   <tr>
-                    <td colSpan={columns.length + 3} style={{ textAlign: 'center', padding: '36px', color: '#64748b' }}>
+                    <td colSpan={columns.length + 2} style={{ textAlign: 'center', padding: '36px', color: '#64748b' }}>
                       <div className="spinner" style={{ margin: '0 auto 10px', width: 24, height: 24 }}></div>
                       Loading data...
                     </td>
                   </tr>
                 ) : pagedList.length === 0 ? (
                   <tr>
-                    <td colSpan={columns.length + 3} style={{ textAlign: 'center', padding: '36px', color: '#94a3b8' }}>
+                    <td colSpan={columns.length + 2} style={{ textAlign: 'center', padding: '36px', color: '#94a3b8' }}>
                       No records found
                     </td>
                   </tr>
@@ -408,8 +407,13 @@ export default function MasterPage({ title, icon, apiPath, fields, columns }) {
                     const isSelected = selectedIds.includes(id);
 
                     return (
-                      <tr key={id} className={isSelected ? 'selected' : ''}>
-                        <td className="check-cell">
+                      <tr
+                        key={id}
+                        className={isSelected ? 'selected' : ''}
+                        style={{ cursor: 'pointer' }}
+                        onClick={() => toggleSelectRow(id)}
+                      >
+                        <td className="check-cell" onClick={e => e.stopPropagation()}>
                           <input
                             type="checkbox"
                             checked={isSelected}
@@ -428,24 +432,6 @@ export default function MasterPage({ title, icon, apiPath, fields, columns }) {
                             )}
                           </td>
                         ))}
-                        <td style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>
-                          <button
-                            onClick={() => handleEdit(row)}
-                            className="btn btn-secondary btn-sm"
-                            style={{ padding: '3px 7px', marginRight: 4 }}
-                            title="Edit Record"
-                          >
-                            <Pencil size={12} />
-                          </button>
-                          <button
-                            onClick={() => handleDeactivate(id)}
-                            className={`btn btn-sm ${isActive ? 'btn-danger' : 'btn-success'}`}
-                            style={{ padding: '3px 7px' }}
-                            title={isActive ? 'Deactivate' : 'Activate'}
-                          >
-                            {isActive ? <Ban size={12} /> : <CheckCircle2 size={12} />}
-                          </button>
-                        </td>
                       </tr>
                     );
                   })

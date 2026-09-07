@@ -197,13 +197,57 @@ export default function RentalOrders() {
                   <i className="fa fa-play" /> Dispatch / Activate ({selectedIds.length})
                 </button>
                 {selectedIds.length === 1 && (
-                  <button
-                    className="erp-btn-ghost"
-                    style={{ padding: '6px 14px', fontSize: '13px' }}
-                    onClick={() => nav(`/rental/rental-orders/${selectedIds[0]}/agreement`)}
-                  >
-                    <i className="fa fa-file-text-o" /> Print Agreement
-                  </button>
+                  <>
+                    <button
+                      className="erp-btn-ghost"
+                      style={{ padding: '6px 14px', fontSize: '13px' }}
+                      onClick={() => nav(`/rental/rental-orders/${selectedIds[0]}`)}
+                    >
+                      <i className="fa fa-eye" /> View / Allocate
+                    </button>
+                    {(() => {
+                      const selOrd = orders.find(x => x.id === selectedIds[0]);
+                      if (!selOrd) return null;
+                      return (
+                        <>
+                          {selOrd.status === 'Draft' && (
+                            <>
+                              <button
+                                className="erp-btn-ghost"
+                                style={{ padding: '6px 14px', fontSize: '13px' }}
+                                onClick={() => nav(`/rental/rental-orders/edit/${selOrd.id}`)}
+                              >
+                                <i className="fa fa-pencil" /> Edit Order
+                              </button>
+                              <button
+                                className="erp-btn-ghost"
+                                style={{ color: '#dc2626', borderColor: '#fca5a5', padding: '6px 14px', fontSize: '13px' }}
+                                onClick={() => cancel(selOrd.id)}
+                              >
+                                <i className="fa fa-times" /> Cancel Order
+                              </button>
+                            </>
+                          )}
+                          {selOrd.status === 'In Progress' && (
+                            <button
+                              className="erp-btn-primary"
+                              style={{ background: '#16a34a', padding: '6px 14px', fontSize: '13px' }}
+                              onClick={() => activate(selOrd.id)}
+                            >
+                              <i className="fa fa-play" /> Activate Rental
+                            </button>
+                          )}
+                        </>
+                      );
+                    })()}
+                    <button
+                      className="erp-btn-ghost"
+                      style={{ padding: '6px 14px', fontSize: '13px' }}
+                      onClick={() => nav(`/rental/rental-orders/${selectedIds[0]}/agreement`)}
+                    >
+                      <i className="fa fa-file-text-o" /> Print Agreement
+                    </button>
+                  </>
                 )}
                 <button
                   className="erp-btn-ghost"
@@ -271,17 +315,21 @@ export default function RentalOrders() {
                 </th>
                 <th>Order No</th><th>Client</th><th>Order Date</th>
                 <th>Start Date</th><th>End Date</th><th>Lines</th>
-                <th>Allocated</th><th>Total</th><th>Status</th><th>Actions</th>
+                <th>Allocated</th><th>Total</th><th>Status</th>
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 ? (
-                <tr><td colSpan={11} className="erp-empty">No rental orders found.</td></tr>
+                <tr><td colSpan={10} className="erp-empty">No rental orders found.</td></tr>
               ) : filtered.map(o => {
                 const isSelected = selectedIds.includes(o.id);
                 return (
-                  <tr key={o.id} style={{ background: isSelected ? '#f0fdf4' : undefined }}>
-                    <td style={{ textAlign: 'center' }}>
+                  <tr
+                    key={o.id}
+                    onClick={() => toggleSelectRow(o.id)}
+                    style={{ background: isSelected ? '#f0fdf4' : undefined, cursor: 'pointer' }}
+                  >
+                    <td style={{ textAlign: 'center' }} onClick={e => e.stopPropagation()}>
                       <input
                         type="checkbox"
                         checked={isSelected}
@@ -300,29 +348,6 @@ export default function RentalOrders() {
                     <td><span className="erp-badge erp-badge-green">{o.allocated_count||0}</span></td>
                     <td className="erp-amount">₹{Number(o.total_amount||0).toLocaleString('en-IN')}</td>
                     <td>{statusBadge(o.status)}</td>
-                    <td>
-                      <button className="erp-btn-icon" title="View / Allocate" onClick={() => nav(`/rental/rental-orders/${o.id}`)}>
-                        <i className="fa fa-eye" />
-                      </button>
-                      {o.status === 'Draft' && (
-                        <>
-                          <button className="erp-btn-icon" title="Edit" onClick={() => nav(`/rental/rental-orders/edit/${o.id}`)}>
-                            <i className="fa fa-pencil" />
-                          </button>
-                          <button className="erp-btn-icon" title="Confirm" style={{color:'#16a34a'}} onClick={() => approve(o.id)}>
-                            <i className="fa fa-check" />
-                          </button>
-                          <button className="erp-btn-icon erp-btn-danger" title="Cancel" onClick={() => cancel(o.id)}>
-                            <i className="fa fa-times" />
-                          </button>
-                        </>
-                      )}
-                      {o.status === 'In Progress' && (
-                        <button className="erp-btn-icon" title="Activate Rental" style={{color:'#16a34a'}} onClick={() => activate(o.id)}>
-                          <i className="fa fa-play" />
-                        </button>
-                      )}
-                    </td>
                   </tr>
                 );
               })}

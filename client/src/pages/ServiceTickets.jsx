@@ -353,19 +353,22 @@ export default function ServiceTickets() {
                 <th>Assigned To</th>
                 <th>Opened At</th>
                 <th>Status</th>
-                <th>Action</th>
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 ? (
-                <tr><td colSpan={9} className="erp-empty">No service tickets found.</td></tr>
+                <tr><td colSpan={8} className="erp-empty">No service tickets found.</td></tr>
               ) : filtered.map(t => {
                 const sc = STATUS_COLORS[t.status] || { bg: '#f1f5f9', color: '#475569' };
                 const pb = PRIORITY_BADGES[t.priority] || { bg: '#64748b', color: '#fff' };
                 const isSelected = selectedIds.includes(t.id);
                 return (
-                  <tr key={t.id} style={{ background: isSelected ? '#f0fdf4' : undefined }}>
-                    <td style={{ textAlign: 'center' }}>
+                  <tr
+                    key={t.id}
+                    onClick={() => toggleSelectRow(t.id)}
+                    style={{ background: isSelected ? '#f0fdf4' : undefined, cursor: 'pointer' }}
+                  >
+                    <td style={{ textAlign: 'center' }} onClick={e => e.stopPropagation()}>
                       <input
                         type="checkbox"
                         checked={isSelected}
@@ -406,15 +409,6 @@ export default function ServiceTickets() {
                       <span className="erp-badge" style={{ background: sc.bg, color: sc.color }}>
                         {t.status}
                       </span>
-                    </td>
-                    <td>
-                      <button
-                        className="erp-btn-icon"
-                        title="View & Update Ticket"
-                        onClick={() => openTicketDetail(t.id)}
-                      >
-                        <i className="fa fa-eye" />
-                      </button>
                     </td>
                   </tr>
                 );

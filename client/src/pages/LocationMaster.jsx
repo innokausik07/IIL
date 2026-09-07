@@ -134,31 +134,58 @@ export default function LocationMaster() {
         </div>
 
         {/* ── 3. Action Buttons Row ──────────────────────────────────── */}
-        <div className="card" style={{ marginBottom: 12 }}>
+        <div className="card" style={{ marginBottom: 12, background: selectedIds.length > 0 ? '#eff6ff' : '#ffffff', borderColor: selectedIds.length > 0 ? '#bfdbfe' : '#e2e8f0' }}>
           <div className="card-body" style={{ padding: '10px 14px' }}>
-            <div className="btn-group">
-              <button className="btn btn-primary btn-sm" onClick={() => navigate('/admin/location-master/add')}>
-                <Plus size={13} /> Add Location
-              </button>
-              <button className="btn btn-secondary btn-sm" onClick={handleExportCsv}>
-                <Download size={13} /> Export CSV
-              </button>
-              <button className="btn btn-secondary btn-sm" onClick={fetchLocations}>
-                <RefreshCw size={13} className={fetching ? 'spin' : ''} /> Refresh
-              </button>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
+              <div className="btn-group" style={{ flexWrap: 'wrap', gap: 6 }}>
+                {selectedIds.length > 0 ? (
+                  <>
+                    {selectedIds.length === 1 && (
+                      <button
+                        className="btn btn-primary btn-sm"
+                        onClick={() => navigate(`/admin/location-master/edit/${selectedIds[0]}`)}
+                      >
+                        <Pencil size={13} /> Edit Location
+                      </button>
+                    )}
+                    <button
+                      className="btn btn-success btn-sm"
+                      onClick={() => {
+                        selectedIds.forEach(id => handleToggleStatus(id));
+                      }}
+                    >
+                      <CheckSquare size={13} /> Toggle Status ({selectedIds.length})
+                    </button>
+                    <button className="btn btn-secondary btn-sm" onClick={handleExportCsv}>
+                      <Download size={13} /> Export Selected ({selectedIds.length})
+                    </button>
+                    <button className="btn btn-secondary btn-sm" onClick={() => setSelectedIds([])}>
+                      <X size={13} /> Deselect All
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button className="btn btn-primary btn-sm" onClick={() => navigate('/admin/location-master/add')}>
+                      <Plus size={13} /> Add Location
+                    </button>
+                    <button className="btn btn-secondary btn-sm" onClick={handleExportCsv}>
+                      <Download size={13} /> Export CSV
+                    </button>
+                    <button className="btn btn-secondary btn-sm" onClick={fetchLocations}>
+                      <RefreshCw size={13} className={fetching ? 'spin' : ''} /> Refresh
+                    </button>
+                  </>
+                )}
+              </div>
+
+              {selectedIds.length > 0 && (
+                <div style={{ fontWeight: 600, color: '#1e40af', fontSize: '13px' }}>
+                  {selectedIds.length} location{selectedIds.length > 1 ? 's' : ''} selected
+                </div>
+              )}
             </div>
           </div>
         </div>
-
-        {/* Selection bar */}
-        {selectedIds.length > 0 && (
-          <div className="selected-bar">
-            <span>{selectedIds.length} location{selectedIds.length > 1 ? 's' : ''} selected</span>
-            <button className="btn btn-secondary btn-sm" onClick={() => setSelectedIds([])}>
-              <X size={12} /> Deselect All
-            </button>
-          </div>
-        )}
 
         {/* ── 4. Data Table Container (CCTV Audit Style) ─────────────── */}
         <div className="table-container">
@@ -201,20 +228,19 @@ export default function LocationMaster() {
                   <th>Contact Person</th>
                   <th>Contact No</th>
                   <th style={{ textAlign: 'center' }}>Status</th>
-                  <th style={{ textAlign: 'center', width: 90 }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {fetching ? (
                   <tr>
-                    <td colSpan="12" style={{ textAlign: 'center', padding: '36px', color: '#64748b' }}>
+                    <td colSpan="11" style={{ textAlign: 'center', padding: '36px', color: '#64748b' }}>
                       <div className="spinner" style={{ margin: '0 auto 10px', width: 24, height: 24 }}></div>
                       Loading plants & locations...
                     </td>
                   </tr>
                 ) : pagedList.length === 0 ? (
                   <tr>
-                    <td colSpan="12" style={{ textAlign: 'center', padding: '36px', color: '#94a3b8' }}>
+                    <td colSpan="11" style={{ textAlign: 'center', padding: '36px', color: '#94a3b8' }}>
                       No plants or locations found
                     </td>
                   </tr>
@@ -224,8 +250,13 @@ export default function LocationMaster() {
                     const isActive = String(loc.status) === '1';
 
                     return (
-                      <tr key={loc.id} className={isSelected ? 'selected' : ''}>
-                        <td className="check-cell">
+                      <tr
+                        key={loc.id}
+                        className={isSelected ? 'selected' : ''}
+                        onClick={() => toggleSelectRow(loc.id)}
+                        style={{ cursor: 'pointer' }}
+                      >
+                        <td className="check-cell" onClick={e => e.stopPropagation()}>
                           <input
                             type="checkbox"
                             checked={isSelected}
@@ -255,16 +286,6 @@ export default function LocationMaster() {
                           <span className={`badge ${isActive ? 'badge-ack' : 'badge-default'}`}>
                             {isActive ? 'Active' : 'Inactive'}
                           </span>
-                        </td>
-                        <td style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>
-                          <button
-                            onClick={() => navigate(`/admin/location-master/edit/${loc.id}`)}
-                            className="btn btn-secondary btn-sm"
-                            style={{ padding: '3px 7px' }}
-                            title="Edit Location"
-                          >
-                            <Pencil size={12} />
-                          </button>
                         </td>
                       </tr>
                     );

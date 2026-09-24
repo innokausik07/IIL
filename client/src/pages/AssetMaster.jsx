@@ -231,6 +231,14 @@ export default function AssetMaster() {
                       >
                         <i className="fa fa-pencil" /> Edit Asset
                       </button>
+                      <button
+                        className="erp-btn-primary"
+                        style={{ background: '#8b5cf6', padding: '6px 14px', fontSize: '13px' }}
+                        onClick={() => nav(`/assets/asset-movements?id=${sel.id}&code=${sel.asset_code}`)}
+                        title="View Asset Movements"
+                      >
+                        <i className="fa fa-exchange" /> Movements
+                      </button>
                     </>
                   );
                 })()}

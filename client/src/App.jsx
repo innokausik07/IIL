@@ -57,6 +57,7 @@ import RfpMaster from './pages/RfpMaster';
 
 // ── Phase 1 ERP: Asset, Rental & Org Masters ──────────────────────────────────
 import AssetMaster from './pages/AssetMaster';
+import AssetMovements from './pages/AssetMovements';
 import RentalPlanMaster from './pages/RentalPlanMaster';
 import PurchaseOrders from './pages/PurchaseOrders';
 import PurchaseOrderForm from './pages/PurchaseOrderForm';
@@ -133,6 +134,7 @@ function AppRoutes() {
       {/* ── Phase 1 ERP: Asset Management ─────────────────────────────────── */}
       <Route path="/assets/asset-master"             element={<ProtectedRoute><AssetMaster /></ProtectedRoute>} />
       <Route path="/assets/asset-master/:id/barcode" element={<ProtectedRoute><PrintAssetBarcode /></ProtectedRoute>} />
+      <Route path="/assets/asset-movements"          element={<ProtectedRoute><AssetMovements /></ProtectedRoute>} />
 
 
       {/* ── Phase 1 ERP: Rental Plan Master ───────────────────────────────── */}

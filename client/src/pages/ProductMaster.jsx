@@ -7,23 +7,26 @@ export default function ProductMaster() {
   const [subcategories, setSubcategories] = useState([]);
   const [brands, setBrands] = useState([]);
   const [colors, setColors] = useState([]);
+  const [materialTypes, setMaterialTypes] = useState([]);
 
   useEffect(() => {
     const loadMasters = async () => {
       try {
         const token = localStorage.getItem('token');
         const hdr = { 'Content-Type': 'application/json', 'Authorization': token ? `Bearer ${token}` : '' };
-        const [cRes, scRes, bRes, clRes] = await Promise.all([
+        const [cRes, scRes, bRes, clRes, mtRes] = await Promise.all([
           fetch('/api/masters/product_cat_master', { headers: hdr }).then(r => r.json()),
           fetch('/api/masters/product_sub_category', { headers: hdr }).then(r => r.json()),
           fetch('/api/masters/make_master', { headers: hdr }).then(r => r.json()),
           fetch('/api/masters/color_master', { headers: hdr }).then(r => r.json()),
+          fetch('/api/masters/material_type_master', { headers: hdr }).then(r => r.json()),
         ]);
 
         if (cRes.status === 'success') setCategories(cRes.data || []);
         if (scRes.status === 'success') setSubcategories(scRes.data || []);
         if (bRes.status === 'success') setBrands(bRes.data || []);
         if (clRes.status === 'success') setColors(clRes.data || []);
+        if (mtRes.status === 'success') setMaterialTypes(mtRes.data || []);
       } catch (err) {
         console.error('Failed to load masters for ProductMaster:', err);
       }
@@ -51,12 +54,18 @@ export default function ProductMaster() {
     label: c.color_name
   }));
 
+  const mtOptions = materialTypes.map(m => ({
+    value: String(m.id),
+    label: m.material_type
+  }));
+
   const fields = [
     { name: 'product_name',        label: 'Product / Item Name', required: true },
     { name: 'part_code',           label: 'Part Code (PID)' },
     { name: 'item_code',           label: 'Item Code' },
     { name: 'product_category_id', label: 'Category', type: 'select', options: categoryOptions },
     { name: 'product_subcat_id',   label: 'Sub-Category', type: 'select', options: subcatOptions },
+    { name: 'material_type_id',    label: 'Material Type', type: 'select', options: mtOptions },
     { name: 'brand_id',            label: 'Brand / Make', type: 'select', options: brandOptions },
     { name: 'model',               label: 'Model Name' },
     { name: 'hsn_code',            label: 'HSN Code' },

@@ -21,7 +21,7 @@ export default function ProductMaster() {
           fetch('/api/masters/make_master', { headers: hdr }).then(r => r.json()),
           fetch('/api/masters/color_master', { headers: hdr }).then(r => r.json()),
           fetch('/api/masters/material_type_master', { headers: hdr }).then(r => r.json()),
-          fetch('/api/masters/specification_master', { headers: hdr }).then(r => r.json()),
+          fetch('/api/masters/property_master', { headers: hdr }).then(r => r.json()),
         ]);
 
         if (cRes.status === 'success') setCategories(cRes.data || []);
@@ -64,7 +64,7 @@ export default function ProductMaster() {
 
   const specOptions = specifications.map(s => ({
     value: String(s.id),
-    label: s.specification_name
+    label: `${s.property_name}: ${s.property_value}`
   }));
 
   const fields = [

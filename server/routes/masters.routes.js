@@ -146,7 +146,7 @@ makeRoutes('asp_master',         'id',  ['asp_name', 'contact_person', 'phone', 
 makeRoutes('product_cat_master',  'catid',     ['cat_name', 'short_code', 'status']);
 makeRoutes('product_sub_category','psubcatid', ['prod_sub_cat', 'productid', 'product_category', 'status']);
 makeRoutes('material_type_master','id',        ['material_type', 'description', 'status']);
-makeRoutes('specification_master','id',        ['material_type_id', 'specification_name', 'description', 'status']);
+makeRoutes('property_master',     'id',        ['subcat_id', 'property_for', 'property_name', 'property_value', 'status', 'is_prop']);
 makeRoutes('product_master',      'id',        ['part_code', 'item_code', 'product_name', 'product_category_id', 'product_subcat_id', 'material_type_id', 'specification_id', 'brand_id', 'model', 'hsn_code', 'product_color', 'product_type', 'is_serialize', 'product_description', 'warranty_days', 'warranty_terms', 'status_id']);
 makeRoutes('bom_master',          'id',        ['bom_no', 'product_name', 'part_code', 'subcat_name', 'qty', 'status']);
 makeRoutes('price_master',        'id',        ['part_code', 'product_name', 'purchase_price', 'selling_price', 'rental_price', 'status']);

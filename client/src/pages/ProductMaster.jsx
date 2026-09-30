@@ -8,18 +8,20 @@ export default function ProductMaster() {
   const [brands, setBrands] = useState([]);
   const [colors, setColors] = useState([]);
   const [materialTypes, setMaterialTypes] = useState([]);
+  const [specifications, setSpecifications] = useState([]);
 
   useEffect(() => {
     const loadMasters = async () => {
       try {
         const token = localStorage.getItem('token');
         const hdr = { 'Content-Type': 'application/json', 'Authorization': token ? `Bearer ${token}` : '' };
-        const [cRes, scRes, bRes, clRes, mtRes] = await Promise.all([
+        const [cRes, scRes, bRes, clRes, mtRes, spRes] = await Promise.all([
           fetch('/api/masters/product_cat_master', { headers: hdr }).then(r => r.json()),
           fetch('/api/masters/product_sub_category', { headers: hdr }).then(r => r.json()),
           fetch('/api/masters/make_master', { headers: hdr }).then(r => r.json()),
           fetch('/api/masters/color_master', { headers: hdr }).then(r => r.json()),
           fetch('/api/masters/material_type_master', { headers: hdr }).then(r => r.json()),
+          fetch('/api/masters/specification_master', { headers: hdr }).then(r => r.json()),
         ]);
 
         if (cRes.status === 'success') setCategories(cRes.data || []);
@@ -27,6 +29,7 @@ export default function ProductMaster() {
         if (bRes.status === 'success') setBrands(bRes.data || []);
         if (clRes.status === 'success') setColors(clRes.data || []);
         if (mtRes.status === 'success') setMaterialTypes(mtRes.data || []);
+        if (spRes.status === 'success') setSpecifications(spRes.data || []);
       } catch (err) {
         console.error('Failed to load masters for ProductMaster:', err);
       }
@@ -59,6 +62,11 @@ export default function ProductMaster() {
     label: m.material_type
   }));
 
+  const specOptions = specifications.map(s => ({
+    value: String(s.id),
+    label: s.specification_name
+  }));
+
   const fields = [
     { name: 'product_name',        label: 'Product / Item Name', required: true },
     { name: 'part_code',           label: 'Part Code (PID)' },
@@ -66,6 +74,7 @@ export default function ProductMaster() {
     { name: 'product_category_id', label: 'Category', type: 'select', options: categoryOptions },
     { name: 'product_subcat_id',   label: 'Sub-Category', type: 'select', options: subcatOptions },
     { name: 'material_type_id',    label: 'Material Type', type: 'select', options: mtOptions },
+    { name: 'specification_id',    label: 'Specification', type: 'select', options: specOptions },
     { name: 'brand_id',            label: 'Brand / Make', type: 'select', options: brandOptions },
     { name: 'model',               label: 'Model Name' },
     { name: 'hsn_code',            label: 'HSN Code' },

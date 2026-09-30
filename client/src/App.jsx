@@ -43,6 +43,7 @@ import AspMaster from './pages/AspMaster';
 import ProductCategoryMaster from './pages/ProductCategoryMaster';
 import ProductSubcategoryMaster from './pages/ProductSubcategoryMaster';
 import MaterialTypeMaster from './pages/MaterialTypeMaster';
+import SpecificationMaster from './pages/SpecificationMaster';
 import ProductMaster from './pages/ProductMaster';
 import BomMaster from './pages/BomMaster';
 import PriceMaster from './pages/PriceMaster';
@@ -121,6 +122,7 @@ function AppRoutes() {
       <Route path="/products/category-master"    element={<ProtectedRoute><ProductCategoryMaster /></ProtectedRoute>} />
       <Route path="/products/subcategory-master" element={<ProtectedRoute><ProductSubcategoryMaster /></ProtectedRoute>} />
       <Route path="/products/material-type"      element={<ProtectedRoute><MaterialTypeMaster /></ProtectedRoute>} />
+      <Route path="/products/specification-master" element={<ProtectedRoute><SpecificationMaster /></ProtectedRoute>} />
       <Route path="/products/bom-master"          element={<ProtectedRoute><BomMaster /></ProtectedRoute>} />
       <Route path="/products/price-master"        element={<ProtectedRoute><PriceMaster /></ProtectedRoute>} />
 

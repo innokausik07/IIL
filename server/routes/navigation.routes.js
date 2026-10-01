@@ -95,13 +95,20 @@ router.get('/', async (req, res) => {
 
     // Build allowed set from user's access rows
     const allowedSubIds = new Set();
-    const allowedFnIds = new Set();
+    const wildcardFnIds = new Set();
+    
     userRows.forEach(r => {
-      if (r.sub_function_id) allowedSubIds.add(String(r.sub_function_id).trim());
-      if (r.function_id) allowedFnIds.add(String(r.function_id).trim().toUpperCase());
+      const subId = String(r.sub_function_id || '').trim();
+      const fnId = String(r.function_id || '').trim().toUpperCase();
+      
+      if (subId && subId !== 'null' && subId !== '0') {
+        allowedSubIds.add(subId);
+      } else if (fnId && fnId !== 'null' && fnId !== '0') {
+        wildcardFnIds.add(fnId);
+      }
     });
 
-    // Build navigation menu tree strictly from allowedSubIds / allowedFnIds
+    // Build navigation menu tree strictly from allowedSubIds / wildcardFnIds
     const menuTree = functions.map(fn => {
       const fnCode = String(fn.function_id || '').trim().toUpperCase();
       const fnIdStr = String(fn.id).trim();
@@ -115,14 +122,14 @@ router.get('/', async (req, res) => {
         if (!isChild) return false;
 
         // No rights granted? Hide everything
-        if (allowedSubIds.size === 0 && allowedFnIds.size === 0) return false;
+        if (allowedSubIds.size === 0 && wildcardFnIds.size === 0) return false;
 
-        // Match by sub_function_id or function_id
+        // Match by sub_function_id or wildcard function_id
         return (
           allowedSubIds.has(subIdStr) ||
-          allowedFnIds.has(subFnCode) ||
-          allowedFnIds.has(fnCode) ||
-          allowedFnIds.has(fnIdStr)
+          wildcardFnIds.has(subFnCode) ||
+          wildcardFnIds.has(fnCode) ||
+          wildcardFnIds.has(fnIdStr)
         );
       });
 

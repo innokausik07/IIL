@@ -180,7 +180,7 @@ router.get('/', async (req, res) => {
       status: 'success',
       data: menuTree,
       totalAccessibleModules: menuTree.length,
-      grantedCount: allowedSubIds.size + allowedFnIds.size,
+      grantedCount: allowedSubValues.size + wildcardFnIds.size,
       matchedCandidateIds: candidateArr,
       userRowsFound: userRows.length
     });

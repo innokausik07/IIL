@@ -101,18 +101,14 @@ router.get('/', async (req, res) => {
       const subId = String(r.sub_function_id || '').trim().toLowerCase();
       const fnId = String(r.function_id || '').trim().toLowerCase();
       
-      if (subId && subId !== 'null' && subId !== '0' && subId !== 'undefined') {
+      if (subId && subId !== 'null' && subId !== 'undefined' && subId !== '0') {
         allowedSubValues.add(subId);
-      } 
-      // Always store the parent function ID for wildcard fallback 
-      // (but we will ONLY use it if the user has NO specific sub-modules granted, 
-      // OR if they are an admin with wildcard grants)
-      if (fnId && fnId !== 'null' && fnId !== '0' && fnId !== 'undefined') {
+      }
+      if (fnId && fnId !== 'null' && fnId !== 'undefined' && fnId !== '0') {
         wildcardFnIds.add(fnId);
       }
     });
 
-    // Build navigation menu tree strictly
     const menuTree = functions.map(fn => {
       const fnCode = String(fn.function_id || '').trim().toLowerCase();
       const fnIdStr = String(fn.id).trim().toLowerCase();
@@ -121,45 +117,40 @@ router.get('/', async (req, res) => {
         const subFnCode = String(sub.function_id || '').trim().toLowerCase();
         const subIdStr = String(sub.id).trim().toLowerCase();
         const subName = String(sub.sub_name || '').trim().toLowerCase();
-        const subFile = String(sub.file_name || '').trim().toLowerCase();
 
-        // Must belong to this parent function
         const isChild = !subFnCode || subFnCode === fnCode || subFnCode === fnIdStr;
         if (!isChild) return false;
 
-        // No rights granted at all? Hide everything
         if (allowedSubValues.size === 0 && wildcardFnIds.size === 0) return false;
 
-        // Check if this specific sub-module is explicitly granted
-        const isExplicitlyGranted = 
-          allowedSubValues.has(subIdStr) || 
-          allowedSubValues.has(subFnCode) || 
-          allowedSubValues.has(subName) || 
-          allowedSubValues.has(subFile);
+        // 1. Explicit Sub-Module Match (The FIX for the bug)
+        // If this specific sub-module was checked, show it.
+        if (allowedSubValues.has(subIdStr) || allowedSubValues.has(subFnCode) || allowedSubValues.has(subName)) {
+          return true;
+        }
 
-        if (isExplicitlyGranted) return true;
-
-        // If no explicit sub-module matches, but the parent function is granted, 
-        // we check if this user has ANY explicit sub-modules for this parent.
-        // If they have NO explicit sub-modules for this parent, the parent grant acts as a wildcard.
-        const parentGranted = wildcardFnIds.has(subFnCode) || wildcardFnIds.has(fnCode) || wildcardFnIds.has(fnIdStr);
-        if (parentGranted) {
-           // Does the user have ANY explicit sub-module in allowedSubValues that belongs to this parent?
-           const hasOtherSiblingsGranted = subFunctions.some(sibling => {
-              const sibFn = String(sibling.function_id || '').trim().toLowerCase();
-              const sibId = String(sibling.id).trim().toLowerCase();
-              const sibName = String(sibling.sub_name || '').trim().toLowerCase();
-              if (sibFn === fnCode || sibFn === fnIdStr) {
-                 return allowedSubValues.has(sibId) || allowedSubValues.has(sibName);
-              }
-              return false;
-           });
-           
-           // If they have siblings granted explicitly, we DO NOT wildcard grant this one.
-           // This fixes the bug where checking 1 checkbox opened all of them.
-           if (!hasOtherSiblingsGranted) {
-              return true; // Wildcard grant
-           }
+        // 2. Wildcard Fallback (For Admins / Old data)
+        // If the user has rights to the parent function, BUT did not explicitly grant ANY sub-modules 
+        // in this function, we assume they are an Admin / have a legacy wildcard grant.
+        const hasParentGrant = wildcardFnIds.has(subFnCode) || wildcardFnIds.has(fnCode) || wildcardFnIds.has(fnIdStr);
+        if (hasParentGrant) {
+          // Find if they have ANY explicit sub-module granted in this parent function
+          let hasAnySibling = false;
+          for (let sib of subFunctions) {
+            const sibFn = String(sib.function_id || '').trim().toLowerCase();
+            const sibId = String(sib.id).trim().toLowerCase();
+            const sibName2 = String(sib.sub_name || '').trim().toLowerCase();
+            if (sibFn === fnCode || sibFn === fnIdStr) {
+               if (allowedSubValues.has(sibId) || allowedSubValues.has(sibName2)) {
+                 hasAnySibling = true;
+                 break;
+               }
+            }
+          }
+          // If no siblings were explicitly checked, it's a true wildcard grant. Show it.
+          if (!hasAnySibling) {
+            return true;
+          }
         }
 
         return false;

@@ -74,7 +74,7 @@ export default function ProductMaster() {
     { name: 'product_category_id', label: 'Category', type: 'select', options: categoryOptions },
     { name: 'product_subcat_id',   label: 'Sub-Category', type: 'select', options: subcatOptions },
     { name: 'material_type_id',    label: 'Material Type', type: 'select', options: mtOptions },
-    { name: 'specification_id',    label: 'Specification', type: 'select', options: specOptions },
+    { name: 'specification_id',    label: 'Specification (Hold Ctrl to select multiple)', type: 'multiselect', options: specOptions },
     { name: 'brand_id',            label: 'Brand / Make', type: 'select', options: brandOptions },
     { name: 'model',               label: 'Model Name' },
     { name: 'hsn_code',            label: 'HSN Code' },

@@ -489,6 +489,15 @@ export default function MasterPage({ title, icon, apiPath, fields, columns }) {
                             <option key={o.value ?? o} value={o.value ?? o}>{o.label ?? o}</option>
                           ))}
                         </select>
+                      ) : f.type === 'multiselect' ? (
+                        <select className="form-select" multiple name={f.name} value={Array.isArray(form[f.name]) ? form[f.name] : (form[f.name] ? String(form[f.name]).split(',') : [])} onChange={(e) => {
+                          const values = Array.from(e.target.selectedOptions, option => option.value);
+                          handleChange({ target: { name: f.name, value: values.join(',') } });
+                        }} required={f.required} style={{ height: 'auto', minHeight: '100px' }}>
+                          {(f.options || []).map(o => (
+                            <option key={o.value ?? o} value={o.value ?? o}>{o.label ?? o}</option>
+                          ))}
+                        </select>
                       ) : f.type === 'textarea' ? (
                         <textarea className="form-control" name={f.name} value={form[f.name]} onChange={handleChange} required={f.required} rows={3} />
                       ) : (
